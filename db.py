@@ -1,9 +1,19 @@
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, Mapped, mapped_column
-
+from functools import wraps
 engine = create_engine(url = "sqlite:///data.db")
 
-session = sessionmaker(engine)
+session_factory = sessionmaker(engine)
+
+
+def with_new_session(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        with session_factory() as session:
+            return func(session, *args, **kwargs)
+    return wrapper
+    
+
 
 class Base(DeclarativeBase):
     pass
@@ -15,21 +25,20 @@ class ChatRequests(Base):
     promt: Mapped[str]
     response: Mapped[str]
 
+@with_new_session
+def get_user_requests(session, ip_adress: str) -> list[ChatRequests]:
+    query = select(ChatRequests).filter_by(ip_adress=ip_adress)
+    result = session.execute(query)
+    return result.scalars().all()
 
-def get_user_requests(ip_adress: str) -> list[ChatRequests]:
-    with session() as new_session:
-        query = select(ChatRequests).filter_by(ip_adress=ip_adress)
-        result = new_session.execute(query)
-        return result.scalars().all()
+@with_new_session
+def add_request_data(session, ip_adress: str, prompt: str, response: str) -> None:
 
+    new_request = ChatRequests(
+        ip_adress=ip_adress,
+        promt=prompt,
+        response=response,
+    )
+    session.add(new_request)
 
-def add_request_data(ip_adress: str, prompt: str, response: str) -> None:
-    with session() as new_session:
-        new_request = ChatRequests(
-            ip_adress=ip_adress,
-            promt=prompt,
-            response=response,
-        )
-        new_session.add(new_request)
-
-        new_session.commit()
+    session.commit()

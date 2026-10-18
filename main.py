@@ -1,9 +1,8 @@
 from fastapi import FastAPI, Body, Request
-from fastapi.middleware.cors import CORSMiddleware
-from db import Base, engine, get_user_requests, add_request_data
+from db import Base, add_request_data, engine, get_user_requests
 from gemini_client import Client
 from contextlib import asynccontextmanager
-
+from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,12 +15,6 @@ app = FastAPI(
     lifespan=lifespan,
     title="Lagoa"
     )
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5500", "http://127.0.0.1:5500"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 client = Client()
 
 @app.get("/requests")
@@ -38,10 +31,19 @@ def send_prompt(
     prompt: str = Body(embed=True)
 ):
     user_ip_adress = request.client.host
-    answer = client.generate(prompt)
+    response = client.generate(prompt)
     add_request_data(
         ip_adress=user_ip_adress,
         prompt=prompt,
-        response=answer,
+        response=response
+        )
+    return {"answer" : response}
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5500", "http://127.0.0.1:5500"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
     )
-    return {"answer" : answer}
