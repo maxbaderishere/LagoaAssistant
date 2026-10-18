@@ -12,7 +12,7 @@ def with_new_session(func):
         with session_factory() as session:
             return func(session, *args, **kwargs)
     return wrapper
-    
+
 
 
 class Base(DeclarativeBase):
@@ -25,11 +25,20 @@ class ChatRequests(Base):
     promt: Mapped[str]
     response: Mapped[str]
 
+
 @with_new_session
-def get_user_requests(session, ip_adress: str) -> list[ChatRequests]:
-    query = select(ChatRequests).filter_by(ip_adress=ip_adress)
+def get_user_requests(session, ip_adress: str, limit: int = 10) -> list[ChatRequests]:
+    query = (
+        select(ChatRequests)
+        .filter_by(ip_adress=ip_adress)
+        .order_by(ChatRequests.id.desc())   
+        .limit(limit)                       
+    )
     result = session.execute(query)
-    return result.scalars().all()
+    return list(reversed(result.scalars().all()))
+
+def summarise(ip_adress: str):
+    pass
 
 @with_new_session
 def add_request_data(session, ip_adress: str, prompt: str, response: str) -> None:

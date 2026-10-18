@@ -20,7 +20,6 @@ client = Client()
 @app.get("/requests")
 def get_requests(request: Request):
     user_ip_adress = request.client.host
-    print(user_ip_adress) 
     user_requests = get_user_requests(ip_adress=user_ip_adress)
     return user_requests
 
@@ -30,8 +29,10 @@ def send_prompt(
     request: Request,
     prompt: str = Body(embed=True)
 ):
+    
     user_ip_adress = request.client.host
-    response = client.generate(prompt)
+    history = get_user_requests(ip_adress=user_ip_adress)
+    response = client.generate(prompt,history)
     add_request_data(
         ip_adress=user_ip_adress,
         prompt=prompt,
