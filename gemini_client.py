@@ -2,7 +2,7 @@ from google import genai
 
 from config import cfg
 
-class Client():
+class Client:
 
     def generate(self, prompt: str):
         client = genai.Client(api_key=cfg.gemini_api_key)   
