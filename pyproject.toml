@@ -29,3 +29,8 @@ build-backend = "uv_build"
 
 [tool.uv]
 package = false
+
+[dependency-groups]
+evals = [
+    "pyyaml>=6.0.3",
+]

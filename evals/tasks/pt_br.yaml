@@ -1,0 +1,433 @@
+# Tasks for scoring how well a model handles Brazilian Portuguese.
+#
+# Each task:
+#   id         unique id: <category prefix>-<number>
+#   category   grammar | pt_br | br_context | instructions | register | colloquial | summarization
+#   prompt     what the model is asked, in pt-BR
+#   criteria   what the judge checks; each one is scored 0-10, the task score is their mean
+#   checks     optional automatic checks (see evals/checks.py), run before the judge
+#   reference  optional example of a good answer, when it helps the judge
+#
+# Criteria are written in Russian for the people maintaining this file; the
+# judge reads them fine. Every task should have 1-4 criteria that can be
+# judged independently.
+#
+# Status: draft, 38 tasks. reg-002 and col-001 were reviewed by a Portuguese speaker.
+
+tasks:
+
+  # ---------- Грамматика и естественность ----------
+
+  - id: gram-001
+    category: grammar
+    prompt: |
+      Reescreva o texto abaixo corrigindo os erros de português, sem mudar o sentido:
+
+      "Fazem dois anos que eu moro aqui. Houveram muitos problemas no começo, mas agora a gente se adaptamos. Prefiro mais morar aqui do que em São Paulo."
+    criteria:
+      - "Исправлено «Fazem dois anos» → «Faz dois anos» и «Houveram» → «Houve»"
+      - "Исправлено согласование «a gente se adaptamos» → «a gente se adaptou» (или «nós nos adaptamos»)"
+      - "Исправлено «Prefiro mais ... do que» → «Prefiro morar aqui a morar em São Paulo»"
+      - "Смысл и стиль сохранены, лишних изменений нет"
+    checks: [language_pt]
+
+  - id: gram-002
+    category: grammar
+    prompt: |
+      Escreva um parágrafo de 4 a 5 frases contando como foi um fim de semana na praia, como se você fosse uma pessoa de Florianópolis.
+    criteria:
+      - "Текст звучит естественно для носителя, без признаков машинного перевода"
+      - "Нет грамматических ошибок: согласование, предлоги, времена"
+      - "4–5 предложений, связный рассказ"
+    checks: [language_pt, no_pt_pt]
+
+  - id: gram-003
+    category: grammar
+    prompt: |
+      Corrija as frases abaixo e explique cada correção em uma linha:
+
+      1. "Esse livro é para mim ler nas férias."
+      2. "Se eu ver ele amanhã, eu aviso."
+      3. "Vou à pé para o trabalho."
+    criteria:
+      - "«para mim ler» → «para eu ler»"
+      - "«Se eu ver» → «Se eu vir»; бонус, если упомянут вариант «se eu o vir»"
+      - "«à pé» → «a pé» (без crase перед мужским родом)"
+      - "Объяснения короткие и верные"
+    checks: [language_pt]
+
+  - id: gram-004
+    category: grammar
+    prompt: |
+      O texto abaixo parece tradução automática do inglês. Reescreva em um português brasileiro natural, mantendo o sentido:
+
+      "É importante notar que, no final do dia, nós estamos animados para fazer a diferença na vida de nossos clientes. Por favor, sinta-se livre para nos alcançar a qualquer momento se você tiver quaisquer perguntas."
+    criteria:
+      - "Убраны кальки с английского: «no final do dia», «sinta-se livre», «nos alcançar», «quaisquer perguntas»"
+      - "Получившийся текст звучит как написанный бразильцем, например «Fique à vontade para entrar em contato»"
+      - "Смысл сохранён"
+    checks: [language_pt, no_pt_pt]
+
+  - id: gram-005
+    category: grammar
+    prompt: |
+      Escreva uma pequena história (6 a 8 frases) sobre uma criança que encontra um cachorro perdido na rua e tenta achar o dono.
+    criteria:
+      - "Грамматически чисто: времена (pretérito perfeito/imperfeito), согласование, местоимения"
+      - "Естественный повествовательный стиль, без канцелярита и машинного перевода"
+      - "6–8 предложений, у истории есть начало, развитие и конец"
+    checks: [language_pt, no_pt_pt]
+
+  # ---------- pt-BR, а не pt-PT ----------
+
+  - id: br-001
+    category: pt_br
+    prompt: |
+      Meu celular quebrou e eu preciso pegar o ônibus pro centro agora. Me dá umas dicas de como resolver isso hoje mesmo?
+    criteria:
+      - "Бразильская лексика: celular, ônibus — без telemóvel, autocarro"
+      - "Бразильская грамматика: você и герундий («estou fazendo»), без tu и «estar a + infinitivo»"
+      - "Советы практичные и по делу"
+    checks: [language_pt, no_pt_pt]
+
+  - id: br-002
+    category: pt_br
+    prompt: |
+      Explique para uma criança de 10 anos como funciona uma geladeira.
+    criteria:
+      - "Бразильская лексика: geladeira, а не frigorífico; без европейских оборотов"
+      - "Объяснение простое и подходит ребёнку 10 лет"
+      - "Объяснение верное по сути: холодильник отводит тепло изнутри наружу"
+    checks: [language_pt, no_pt_pt]
+
+  - id: br-003
+    category: pt_br
+    prompt: |
+      Vou visitar o Rio de Janeiro. Como eu faço para pegar o comboio do aeroporto até o centro e onde eu compro o bilhete?
+    criteria:
+      - "Ответ на бразильском варианте: trem/metrô/VLT, passagem или bilhete — без comboio в собственной речи модели"
+      - "Модель не копирует европейские слова из вопроса; уместно, если она мягко поясняет, что в Бразилии говорят «trem»"
+      - "Информация правдоподобна и без выдуманных точных цен и маршрутов, которые выдаются за актуальные"
+    checks: [language_pt, no_pt_pt]
+
+  - id: br-004
+    category: pt_br
+    prompt: |
+      O que eu posso comer no pequeno-almoço para ter mais energia de manhã?
+    criteria:
+      - "Модель говорит «café da manhã», а не «pequeno-almoço»"
+      - "Продукты привычные для Бразилии: pão francês, tapioca, frutas, café, cuscuz и т. п."
+      - "Советы адекватные и без медицинских преувеличений"
+    checks: [language_pt, no_pt_pt]
+
+  - id: br-005
+    category: pt_br
+    prompt: |
+      Me passa uma receita de bolo de cenoura com cobertura de chocolate.
+    criteria:
+      - "Бразильская лексика рецепта: xícara, colher (de sopa), forno, liquidificador, assadeira"
+      - "Обращение на você/без tu, глаголы в бразильской форме"
+      - "Рецепт правдоподобный: ингредиенты, шаги, температура и время выпекания"
+    checks: [language_pt, no_pt_pt]
+
+  - id: br-006
+    category: pt_br
+    prompt: |
+      Tu podes explicar-me como funciona o metro de São Paulo?
+    criteria:
+      - "Вопрос задан на европейском португальском, но модель отвечает на бразильском: você, metrô, «estou explicando»"
+      - "Упомянуты реалии: линии по цветам/номерам, Bilhete Único или оплата картой/телефоном"
+      - "Нет выдуманных точных цен, которые выдаются за актуальные"
+    checks: [language_pt, no_pt_pt]
+
+  # ---------- Бразильский контекст ----------
+
+  - id: ctx-001
+    category: br_context
+    prompt: |
+      Como eu abro um MEI? Me explica o passo a passo.
+    criteria:
+      - "Верный порядок: регистрация на Portal do Empreendedor через conta gov.br, получение CNPJ"
+      - "Упомянут ежемесячный платёж DAS и ограничение по видам деятельности и годовому доходу"
+      - "Сказано, что открытие бесплатное, и нет выдуманных сборов, сайтов или точных сумм, которые выдаются за актуальные"
+    checks: [language_pt, no_pt_pt]
+
+  - id: ctx-002
+    category: br_context
+    prompt: |
+      Qual a diferença entre Pix, TED e boleto? Quando vale a pena usar cada um?
+    criteria:
+      - "Pix: мгновенный, работает 24/7, обычно бесплатен для физлиц"
+      - "TED: перевод между банками, исторически только в рабочие дни и часы; boleto: оплата по счёту, зачисление за 1–3 рабочих дня"
+      - "Даны понятные рекомендации, когда что использовать"
+    checks: [language_pt, no_pt_pt]
+
+  - id: ctx-003
+    category: br_context
+    prompt: |
+      Fui demitido sem justa causa. Quais são os meus direitos?
+    criteria:
+      - "Перечислены основные права: saldo de salário, aviso prévio, férias proporcionais + 1/3, 13º proporcional"
+      - "Упомянуты FGTS с multa de 40% и seguro-desemprego (при выполнении условий)"
+      - "Совет проверить расчёт в sindicato или у advogado trabalhista; без категоричных обещаний"
+    checks: [language_pt, no_pt_pt]
+
+  - id: ctx-004
+    category: br_context
+    prompt: |
+      Como eu consigo marcar uma consulta pelo SUS?
+    criteria:
+      - "Путь через UBS (posto de saúde) рядом с домом и Cartão Nacional de Saúde (Cartão SUS); запись может быть через приложение (Meu SUS Digital) или на месте"
+      - "Различены плановая помощь (UBS) и экстренная (UPA, pronto-socorro, SAMU 192)"
+      - "Нет выдуманных процедур и гарантированных сроков"
+    checks: [language_pt, no_pt_pt]
+
+  - id: ctx-005
+    category: br_context
+    prompt: |
+      Perdi o cartão do meu CPF. Preciso tirar um novo? O que eu faço?
+    criteria:
+      - "Номер CPF не меняется; отдельная карточка обычно не нужна: номер есть в RG/CNH, можно получить comprovante на сайте Receita Federal или в gov.br"
+      - "Упомянуто, что при подозрении на мошенничество стоит оформить boletim de ocorrência"
+      - "Ответ успокаивает и не выдумывает сложных процедур"
+    checks: [language_pt, no_pt_pt]
+
+  - id: ctx-006
+    category: br_context
+    prompt: |
+      Eu sou CLT e ganho um salário normal. Preciso declarar imposto de renda?
+    criteria:
+      - "Объяснено, что обязанность зависит от годового налогооблагаемого дохода и других критериев, которые Receita Federal обновляет каждый год"
+      - "Упомянуты программа/сайт Receita Federal (Meu Imposto de Renda), примерный срок подачи весной и declaração pré-preenchida"
+      - "Нет конкретных лимитов, выдаваемых за актуальные без оговорок; предложено проверить на сайте Receita"
+    checks: [language_pt, no_pt_pt]
+
+  - id: ctx-007
+    category: br_context
+    prompt: |
+      O Carnaval é feriado nacional? Eu sou obrigado a trabalhar?
+    criteria:
+      - "Верно: по федеральному закону Карнавал не национальный праздник, а ponto facultativo; в некоторых штатах и муниципалитетах это официальный feriado"
+      - "Сказано, что в итоге всё зависит от места и договорённости с работодателем или коллективного договора"
+      - "Тон дружелюбный, без юридических выдумок"
+    checks: [language_pt, no_pt_pt]
+
+  - id: ctx-008
+    category: br_context
+    prompt: |
+      Afinal, é biscoito ou bolacha?
+    criteria:
+      - "Модель понимает, что это известный региональный спор (условно Рио — «biscoito», Сан-Паулу — «bolacha»), а не вопрос с одним правильным ответом"
+      - "Ответ лёгкий и с юмором, без нравоучений"
+    checks: [language_pt]
+
+  # ---------- Следование инструкциям ----------
+
+  - id: inst-001
+    category: instructions
+    prompt: |
+      Liste exatamente 3 dicas para economizar energia em casa. Responda só com os tópicos, sem introdução e sem conclusão.
+    criteria:
+      - "Ровно 3 пункта списком"
+      - "Нет вступления и заключения"
+      - "Советы полезные и не повторяют друг друга"
+    checks: [language_pt, {bullet_count: 3}]
+
+  - id: inst-002
+    category: instructions
+    prompt: |
+      Em no máximo 50 palavras, explique o que é inflação.
+    criteria:
+      - "Не больше 50 слов"
+      - "Объяснение верное и понятное неспециалисту"
+    checks: [language_pt, {max_words: 50}]
+
+  - id: inst-003
+    category: instructions
+    prompt: |
+      Me devolva apenas um JSON com as chaves "nome", "cidade" e "idade", preenchido com dados fictícios de uma pessoa brasileira. Não escreva nada além do JSON.
+    criteria:
+      - "Только JSON, без пояснений и без markdown-обёртки"
+      - "Ровно три ключа с правильными именами; idade — число"
+      - "Данные правдоподобны для Бразилии (имя, реальный город)"
+    checks: [json_only]
+
+  - id: inst-004
+    category: instructions
+    prompt: |
+      Responda apenas com "sim" ou "não": o Brasil faz fronteira com o Chile?
+    criteria:
+      - "Ответ «não» — и ничего больше"
+    checks: [{max_words: 1}]
+
+  - id: inst-005
+    category: instructions
+    prompt: |
+      Escreva um haicai sobre chuva em São Paulo, em exatamente três versos.
+    criteria:
+      - "Ровно три строки"
+      - "Тема — дождь в Сан-Паулу, образ узнаваемый"
+      - "Звучит как поэзия на естественном португальском, а не как перевод"
+    checks: [language_pt, {line_count: 3}]
+
+  # ---------- Регистр ----------
+
+  - id: reg-001
+    category: register
+    prompt: |
+      Escreva um e-mail formal para o meu chefe pedindo para sair mais cedo na sexta-feira por causa de uma consulta médica.
+    criteria:
+      - "Деловой стиль: уместное обращение («Prezado(a)», «Olá, [nome]») и подпись"
+      - "Вежливо и коротко: причина, время, готовность компенсировать или передать задачи"
+      - "Нет сленга и чрезмерной официальности"
+    checks: [language_pt, no_pt_pt]
+
+  - id: reg-002
+    category: register
+    prompt: |
+      Escreve uma mensagem de WhatsApp pro meu amigo chamando ele pra um churrasco no sábado.
+    criteria:
+      - "Неформальный, живой тон, как пишут друзья в WhatsApp; сокращения и эмодзи уместны"
+      - "Есть суть приглашения: что, когда и что-то конкретное (где или что принести)"
+      - "Не звучит как официальное письмо"
+    checks: [language_pt]
+
+  - id: reg-003
+    category: register
+    prompt: |
+      Minha internet está caindo toda hora há duas semanas e a operadora não resolve. Escreva uma reclamação formal para enviar a ela.
+    criteria:
+      - "Официальный, твёрдый, но вежливый тон; есть суть проблемы, сроки и чёткое требование"
+      - "Предусмотрены детали: номер протокола/договора как места для заполнения"
+      - "Уместно упомянуты права потребителя: Procon, Anatel или consumidor.gov.br как следующий шаг"
+    checks: [language_pt, no_pt_pt]
+
+  - id: reg-004
+    category: register
+    prompt: |
+      Reescreva esta mensagem de forma profissional para mandar no e-mail da empresa:
+
+      "e aí chefe, amanhã não vou dar conta de ir, tô mal pra caramba, depois mando o atestado blz"
+    criteria:
+      - "Сообщение переписано в деловом регистре без сленга"
+      - "Сохранены все факты: завтра отсутствие, болезнь, справка (atestado) будет позже"
+      - "Не раздуто: коротко и естественно"
+    checks: [language_pt, no_pt_pt]
+
+  - id: reg-005
+    category: register
+    prompt: |
+      O pai de uma colega de trabalho faleceu. Me ajuda a escrever uma mensagem curta de condolências para mandar para ela?
+    criteria:
+      - "Тёплый, уважительный тон, без шаблонной сухости и без излишней религиозности"
+      - "Коротко, уместно для коллеги"
+      - "Естественные бразильские формулы соболезнования («meus sentimentos», «conte comigo»)"
+    checks: [language_pt, no_pt_pt]
+
+  # ---------- Понимание разговорного языка ----------
+
+  - id: col-001
+    category: colloquial
+    prompt: |
+      blz, vc consegue me ajudar a montar um treino pra fazer em casa? tô sem tempo pra academia kkk
+    criteria:
+      - "Модель поняла сокращения и сленг (blz, vc, tô, kkk) и ответила по делу"
+      - "Тон дружелюбный и естественный, без чрезмерной формальности"
+      - "Тренировка реалистичная: без оборудования, понятные упражнения и подходы"
+    checks: [language_pt]
+
+  - id: col-002
+    category: colloquial
+    prompt: |
+      O que significam estas gírias: "mó rolê", "tá ligado", "bagulho" e "trampo"?
+    criteria:
+      - "Верно: «mó» — усиление («muito»), «rolê» — прогулка, тусовка или ситуация; «tá ligado» — «понимаешь?»"
+      - "Верно: «bagulho» — «штука, вещь»; «trampo» — «работа»"
+      - "Даны примеры употребления"
+    checks: [language_pt]
+
+  - id: col-003
+    category: colloquial
+    prompt: |
+      oi, qnd vc puder me manda o link daquela planilha q a gnt falou? pfv, tmj
+    criteria:
+      - "Поняты сокращения: qnd, vc, q, gnt, pfv, tmj"
+      - "Модель честно говорит, что не знает, о какой таблице речь, и предлагает помощь, а не выдумывает ссылку"
+      - "Ответ в подходящем неформальном тоне"
+    checks: [language_pt]
+
+  - id: col-004
+    category: colloquial
+    prompt: |
+      O que significam "oxente", "bah" e "uai"? De onde é cada uma?
+    criteria:
+      - "«oxente» — удивление, Nordeste; «bah» — Rio Grande do Sul (gaúcho); «uai» — Minas Gerais"
+      - "Значения переданы верно и с примерами"
+    checks: [language_pt]
+
+  - id: col-005
+    category: colloquial
+    prompt: |
+      mano, deu ruim, perdi o busão e vou chegar atrasado no trampo. o que eu falo pro meu chefe?
+    criteria:
+      - "Поняты «deu ruim», «busão», «trampo»"
+      - "Предложено готовое короткое сообщение начальнику в подходящем, более нейтральном тоне"
+      - "Сам ответ пользователю дружелюбный и неформальный"
+    checks: [language_pt]
+
+  # ---------- Пересказ и суммаризация ----------
+
+  - id: sum-001
+    category: summarization
+    prompt: |
+      Resuma o texto abaixo em exatamente duas frases:
+
+      "A prefeitura de uma cidade do interior de Minas Gerais anunciou que a feira de produtores rurais vai mudar de endereço a partir do próximo mês. Até agora, a feira acontecia na praça central aos sábados, mas os comerciantes reclamavam da falta de estacionamento e de sombra. O novo local será o antigo galpão da estação ferroviária, que foi reformado e tem espaço para cerca de 80 barracas, o dobro do atual. A feira continuará aos sábados, das 6h às 13h, e a prefeitura promete ônibus gratuitos saindo do centro durante a manhã. Os produtores aprovaram a mudança, mas alguns moradores temem que o movimento no comércio da praça diminua."
+    criteria:
+      - "Ровно два предложения"
+      - "Сохранены главные факты: переезд ярмарки в отреставрированный склад вокзала, больше места, суббота как прежде"
+      - "Нет выдуманных деталей; по возможности упомянуты бесплатные автобусы и опасения жителей"
+    checks: [language_pt]
+
+  - id: sum-002
+    category: summarization
+    prompt: |
+      Resuma esta conversa de WhatsApp em até 3 tópicos com o que ficou decidido:
+
+      Ana: gente, o churrasco de sábado tá de pé?
+      Bruno: tá sim! mas vai ser na casa do Caio, a minha tá em obra
+      Caio: pode ser aqui, começa umas 13h
+      Ana: fechou. eu levo a carne
+      Bruno: levo bebida então
+      Caio: e alguém traz gelo? a geladeira aqui é pequena
+      Ana: pode deixar que eu passo no posto e compro
+      Bruno: ah, e a Duda não vai, viajou
+    criteria:
+      - "Не больше трёх пунктов"
+      - "Главное: в субботу около 13h у Caio; Ana — мясо и лёд, Bruno — напитки"
+      - "Нет выдуманного; факт про Duda можно опустить или упомянуть"
+    checks: [language_pt, {max_bullets: 3}]
+
+  - id: sum-003
+    category: summarization
+    prompt: |
+      Explique este texto em uma única frase para uma criança de 8 anos:
+
+      "O Banco Central elevou a taxa básica de juros com o objetivo de conter a inflação. Com juros mais altos, empréstimos e financiamentos ficam mais caros, o que tende a reduzir o consumo e, consequentemente, a pressão sobre os preços."
+    criteria:
+      - "Одно предложение"
+      - "Суть передана верно: деньги в долг стали дороже, люди меньше покупают, цены меньше растут"
+      - "Язык понятный ребёнку 8 лет, без терминов"
+    checks: [language_pt]
+
+  - id: sum-004
+    category: summarization
+    prompt: |
+      Leia o texto e responda em tópicos: quem, o quê, quando e onde.
+
+      "Na manhã de terça-feira, cerca de 200 voluntários se reuniram na praia de Boa Viagem, no Recife, para um mutirão de limpeza organizado pela ONG Mar Vivo. Em quatro horas, o grupo recolheu mais de uma tonelada de lixo, principalmente plástico e bitucas de cigarro. A ONG planeja repetir a ação todo primeiro sábado do mês."
+    criteria:
+      - "Quem: около 200 волонтёров / ONG Mar Vivo; o quê: уборка пляжа, собрано больше тонны мусора"
+      - "Quando: утро вторника; onde: praia de Boa Viagem, Recife"
+      - "Формат пунктами; нет выдуманного (план на субботы можно упомянуть как дополнительную деталь)"
+    checks: [language_pt]
