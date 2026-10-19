@@ -1,23 +1,33 @@
 # Lagoa
 
-[Русский](README.md) | **English**
+[Português](README.pt-BR.md) | **English** | [Русский](README.md)
 
-A personal AI assistant with a web chat. My first pet project.
+An open-source chat for working with AI models, built for the Brazilian market.
+
+## About the project
+
+Lagoa brings different AI models — cloud and local — into one interface in Brazilian Portuguese. It remembers your conversations and lets you pick the model that fits each task.
+
+- **Portuguese first:** the interface and texts are made for Brazilian Portuguese, and models are chosen and evaluated by how well they handle it.
+- **Free and open:** open source, free models wherever possible, and local models via Ollama that work without internet and keep your data on your computer.
+- **Easy to self-host:** anyone can run their own Lagoa.
 
 You ask a question in the web chat, the backend sends it to an AI model together with the context of your previous conversation, saves the question and the answer to a database and returns the answer. Every user has their own account and as many chats as they like: in each one Lagoa remembers what you talked about before, and the next time you sign in, all chats are loaded from the database.
 
-Lagoa can work with different AI providers: **Groq** (the default) and **Google Gemini** are supported right now.
+Lagoa currently works with **Groq** (the default), **Google Gemini** and local models via **Ollama**.
 
 ## Features
 
 - Chat with an AI model through a web interface
-- **Multiple AI providers:** Groq, Gemini and local models via Ollama, with the model picked right in the chat
+- **Multiple AI providers:** Groq, Gemini and local models via Ollama, with the model picked below the message box
 - **Works offline:** with Ollama, Lagoa answers with a local model on your computer
 - **Quick replies:** when the assistant asks a question, reply buttons appear under the answer
+- **Stop button:** while the model is answering, the request can be cancelled and the question goes back into the input
 - **Conversation memory:** Lagoa remembers the context of previous messages
 - Request history stored in SQLite
 - **Accounts:** sign-up and sign-in with a login and password
 - **Multiple chats:** create, rename and delete chats; chats are grouped by date, each with its own history and memory
+- **Lively welcome screen:** the greeting, subtitle and input hints change with the time of day
 - Answers are rendered with formatting (lists, bold text, code blocks)
 - Responsive interface for desktop and mobile
 - Interface in Russian, English, Portuguese and Spanish with a language menu
@@ -69,6 +79,7 @@ This way the assistant remembers both the fresh details and the big picture, whi
 │   ├── login.html            # sign-in and sign-up page
 │   ├── styles.css            # styles
 │   ├── i18n.js               # interface translations (RU / EN / PT / ES)
+│   ├── greetings.js          # welcome screen phrases for each language and time of day
 │   ├── api.js                # API address, token storage and authorized requests
 │   ├── auth.js               # sign-in and sign-up logic
 │   └── app.js                # chat logic
@@ -94,7 +105,7 @@ title_model = {"provider": "ollama", "model": "qwen3.5:4b"}
 quick_reply_model = {"provider": "ollama", "model": "qwen3.5:4b"}
 ```
 
-On startup, `ModelRegistry` (`backend/ai/registry.py`) creates a client for every available model: a cloud model if its provider's API key is set, a local one if Ollama is running and the model is pulled. Users pick a model in the chat header, and the choice is remembered in the browser. To add another model from the same provider, add a line to `models`. See the model names in the [Groq](https://console.groq.com/docs/models) and [Gemini](https://ai.google.dev/gemini-api/docs/models) docs and the [Ollama library](https://ollama.com/library).
+On startup, `ModelRegistry` (`backend/ai/registry.py`) creates a client for every available model: a cloud model if its provider's API key is set, a local one if Ollama is running and the model is pulled. Users pick a model below the message box, and the choice is remembered in the browser. To add another model from the same provider, add a line to `models`. See the model names in the [Groq](https://console.groq.com/docs/models) and [Gemini](https://ai.google.dev/gemini-api/docs/models) docs and the [Ollama library](https://ollama.com/library).
 
 `title_model` is a separate helper model that names new chats, so naming doesn't use up the main models' limits. If it isn't available, the chat's own model names the chat.
 
@@ -200,13 +211,20 @@ Response:
 
 - The sign-in token is kept in the browser's `localStorage`: simple, but less protected against XSS than an httpOnly cookie.
 - The summary of older messages loses small details: the model remembers the gist, not the exact wording.
+- After an answer is stopped, the model still finishes it in the background; it just isn't saved.
 
 ## Roadmap
 
 - [x] Send the conversation history to the model so the assistant keeps context
-- [x] Support multiple AI providers (Groq and Gemini)
+- [x] Support multiple AI providers (Groq, Gemini and Ollama)
 - [x] Add sign-up and authentication
 - [x] Pick the model right in the interface
 - [x] Multiple separate chats per user
 - [x] Add more interface languages (Portuguese and Spanish)
+- [ ] A clear message in the chat when a model runs out of quota, instead of a connection error
+- [ ] Retry a request after an error or after stopping it
+- [ ] Tests that score from 0 to 100 how well each model handles Portuguese
+- [ ] More free models with good Portuguese
+- [ ] Personalization: the user's conversation style that every model follows
+- [ ] Chat commands such as `/context`
 - [ ] Write tests
