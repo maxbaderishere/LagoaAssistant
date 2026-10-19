@@ -12,7 +12,6 @@ from backend.db import Base, engine
 from backend.ai.setup import registry
 from backend.auth import router as auth_router
 from backend.chats import router as chats_router
-from backend.welcome import router as welcome_router
 from backend.schemas import ModelsResponse
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,7 +30,6 @@ app = FastAPI(
     )
 app.include_router(auth_router)
 app.include_router(chats_router)
-app.include_router(welcome_router)
 
 
 @app.get("/models")
