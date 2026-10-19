@@ -219,28 +219,29 @@ a:hover { color: var(--text); }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   min-width: 0;
 }
-.model-picker { position: relative; flex: none; min-width: 0; }
+/* The model picker sits in the composer next to the send button: a quiet text
+   button whose menu opens upwards. */
+.model-picker { position: relative; flex: none; min-width: 0; margin-left: auto; }
+.model-picker:not([hidden]) + .send { margin-left: 0; }
 .model-pill {
-  display: flex; align-items: center; gap: 8px;
-  max-width: 260px;
-  height: 34px; padding: 0 10px 0 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(127, 179, 168, 0.4);
+  display: flex; align-items: center; gap: 4px;
+  max-width: 220px;
+  height: 32px; padding: 0 8px 0 10px;
+  border: none; border-radius: 8px;
   background: transparent;
-  color: var(--teal); font: 500 13px var(--sans);
+  color: var(--muted); font: 500 13px var(--sans);
   white-space: nowrap;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: background 0.15s, color 0.15s;
 }
-.model-pill::before { content: ""; width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--teal); }
-.model-pill:hover, .model-pill[aria-expanded="true"] { border-color: var(--teal); background: rgba(127, 179, 168, 0.08); }
+.model-pill:hover, .model-pill[aria-expanded="true"] { color: var(--text); background: rgba(242, 227, 198, 0.06); }
 .model-pill:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 .model-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .model-chevron { flex: none; transition: transform 0.15s; }
 .model-pill[aria-expanded="true"] .model-chevron { transform: rotate(180deg); }
 
 .model-menu {
-  position: absolute; top: calc(100% + 8px); left: 0; z-index: 30;
+  position: absolute; bottom: calc(100% + 8px); right: 0; z-index: 30;
   min-width: 260px;
   margin: 0; padding: 6px;
   list-style: none;
@@ -419,8 +420,8 @@ a:hover { color: var(--text); }
   .icon-btn { display: flex; }
   .topbar { padding: 10px 8px; gap: 4px; min-height: 0; }
   .topbar h1 { flex: 1; text-align: center; font-size: 18px; }
-  .model-pill { max-width: 180px; padding: 0 8px 0 10px; }
-  .model-menu { left: auto; right: 0; min-width: 230px; }
+  .model-pill { max-width: 170px; }
+  .model-menu { min-width: 230px; }
   .scroll { padding: 20px 16px; }
   .messages { gap: 20px; }
   .msg-user { max-width: 85%; padding: 10px 14px; }
