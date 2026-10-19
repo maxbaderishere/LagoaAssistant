@@ -7,7 +7,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, Mapped, mapped_column
 from functools import wraps
 
-engine = create_engine(url = "sqlite:///data.db")
+from config import cfg
+
+engine = create_engine(url = cfg.database_url)
 
 # expire_on_commit=False keeps loaded attributes available after the session
 # closes, so helpers can return model objects to the caller.

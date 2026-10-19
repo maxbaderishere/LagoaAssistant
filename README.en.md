@@ -29,7 +29,7 @@ Language models keep no memory between requests, so the context is sent along wi
 - **the most recent messages** (10 by default) are sent to the model word for word;
 - **older messages** are compressed into a short summary: key facts about the user, their tasks and agreements. The summary is stored in the database, passed to the model as a system instruction and updated in batches as more old messages pile up.
 
-This way the assistant remembers both the fresh details and the big picture, while requests stay small. The number of verbatim messages and the summary batch size are set in `config.py` (`keep_last` and `summarise_every`).
+This way the assistant remembers both the fresh details and the big picture, while requests stay small. The number of verbatim messages and the summary batch size are set in `backend/config.py` (`keep_last` and `summarise_every`).
 
 ## Tech stack
 
@@ -49,36 +49,39 @@ This way the assistant remembers both the fresh details and the big picture, whi
 ## Project structure
 
 ```
-├── main.py               # FastAPI app and endpoints
-├── auth.py               # sign-up, sign-in and the get_current_user dependency
-├── chats.py              # chat and message endpoints
-├── security.py           # password hashing and JWT tokens
-├── schemas.py            # Pydantic request and response schemas
-├── db.py                 # database models and helper functions
-├── config.py             # settings and API keys from .env
-├── ai/
-│   ├── client.py         # abstract AI client class
-│   ├── gemini_client.py  # Gemini client implementation
-│   ├── ollama_client.py  # client for local Ollama models
-│   ├── groq_client.py    # Groq client implementation
-│   ├── registry.py       # registry of available models
-│   └── setup.py          # builds the registry from config.py
+├── backend/
+│   ├── main.py               # FastAPI app, wires all endpoints together
+│   ├── auth.py               # sign-up, sign-in and the get_current_user dependency
+│   ├── chats.py              # chat and message endpoints
+│   ├── security.py           # password hashing and JWT tokens
+│   ├── schemas.py            # Pydantic request and response schemas
+│   ├── db.py                 # database models and helper functions
+│   ├── config.py             # settings and API keys from .env
+│   └── ai/
+│       ├── client.py         # abstract AI client class
+│       ├── gemini_client.py  # Gemini client implementation
+│       ├── groq_client.py    # Groq client implementation
+│       ├── ollama_client.py  # client for local Ollama models
+│       ├── registry.py       # registry of available models
+│       └── setup.py          # builds the registry from config.py
 ├── frontend/
-│   ├── index.html        # chat page
-│   ├── login.html        # sign-in and sign-up page
-│   ├── styles.css        # styles
-│   ├── i18n.js           # interface translations (RU / EN)
-│   ├── api.js            # API address, token storage and authorized requests
-│   ├── auth.js           # sign-in and sign-up logic
-│   └── app.js            # chat logic
-└── pyproject.toml        # dependencies
+│   ├── index.html            # chat page
+│   ├── login.html            # sign-in and sign-up page
+│   ├── styles.css            # styles
+│   ├── i18n.js               # interface translations (RU / EN)
+│   ├── api.js                # API address, token storage and authorized requests
+│   ├── auth.js               # sign-in and sign-up logic
+│   └── app.js                # chat logic
+├── .env                      # API keys and secrets (not in Git)
+├── data.db                   # SQLite database (created automatically, not in Git)
+└── pyproject.toml            # dependencies
 ```
 
 ## AI providers
 
 AI clients inherit from the abstract `Client` class. To plug in a new provider, you only need to write a class with a `generate` method; the rest of the code works with any client the same way.
 
-The available models are listed in `config.py`:
+The available models are listed in `backend/config.py`:
 
 ```python
 models = [
@@ -91,7 +94,7 @@ title_model = {"provider": "ollama", "model": "qwen3.5:4b"}
 quick_reply_model = {"provider": "ollama", "model": "qwen3.5:4b"}
 ```
 
-On startup, `ModelRegistry` (`ai/registry.py`) creates a client for every available model: a cloud model if its provider's API key is set, a local one if Ollama is running and the model is pulled. Users pick a model in the chat header, and the choice is remembered in the browser. To add another model from the same provider, add a line to `models`. See the model names in the [Groq](https://console.groq.com/docs/models) and [Gemini](https://ai.google.dev/gemini-api/docs/models) docs and the [Ollama library](https://ollama.com/library).
+On startup, `ModelRegistry` (`backend/ai/registry.py`) creates a client for every available model: a cloud model if its provider's API key is set, a local one if Ollama is running and the model is pulled. Users pick a model in the chat header, and the choice is remembered in the browser. To add another model from the same provider, add a line to `models`. See the model names in the [Groq](https://console.groq.com/docs/models) and [Gemini](https://ai.google.dev/gemini-api/docs/models) docs and the [Ollama library](https://ollama.com/library).
 
 `title_model` is a separate helper model that names new chats, so naming doesn't use up the main models' limits. If it isn't available, the chat's own model names the chat.
 
@@ -145,7 +148,7 @@ Get a Groq key in the [Groq console](https://console.groq.com/keys) and a Gemini
 ### 4. Run the backend
 
 ```bash
-uv run uvicorn main:app --reload
+uv run uvicorn main:app --app-dir backend --reload
 ```
 
 The API will be available at http://localhost:8000, interactive docs at http://localhost:8000/docs.

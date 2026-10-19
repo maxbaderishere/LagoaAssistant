@@ -1,8 +1,13 @@
 """Application settings, loaded from environment variables and the .env file."""
 
 from dotenv import load_dotenv
+from pathlib import Path
 import os
-load_dotenv()
+
+# The project root, one level above backend/. .env and data.db live there, so
+# the app finds them no matter which folder the server is started from.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
 
 
 
@@ -18,6 +23,7 @@ class Config:
         keep_last: How many recent messages are sent to the model verbatim.
         summarise_every: How many older messages must pile up before the
             conversation summary is updated.
+        database_url: SQLAlchemy URL of the database, ``data.db`` in the project root.
         ollama_url: Address of the local Ollama server, read from ``OLLAMA_URL``.
         models: Models users can pick from. ``provider`` selects the client
             class, ``model`` is the provider's model name and ``name`` is the
@@ -34,6 +40,7 @@ class Config:
     """
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     groq_api_key = os.getenv("GROQ_API_KEY")
+    database_url = f"sqlite:///{(PROJECT_ROOT / 'data.db').as_posix()}"
     ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
     jwt_secret = os.getenv("JWT_SECRET")
     jwt_algorithm = "HS256"
