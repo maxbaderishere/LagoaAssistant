@@ -4,15 +4,25 @@
 
 A personal AI assistant powered by Google Gemini. My first pet project.
 
-You ask a question in the web chat, the backend sends it to Gemini, saves the question and the answer to a database and returns the answer. The next time you open the chat, your request history is loaded from the database.
+You ask a question in the web chat, the backend sends it to Gemini together with the context of your previous conversation, saves the question and the answer to a database and returns the answer. Lagoa remembers what you talked about before, and the next time you open the chat, the whole history is loaded from the database.
 
 ## Features
 
-- Chat with Gemini through a simple web interface
+- Chat with Gemini through a web interface
+- **Conversation memory:** Lagoa remembers the context of previous messages
 - Request history stored in SQLite
 - History is tied to the user's IP address
 - Answers are rendered with formatting (lists, bold text, code blocks)
-- Light and dark themes
+- Responsive interface for desktop and mobile
+
+## How Lagoa remembers context
+
+Language models keep no memory between requests, so the context is sent along with every question. To keep requests from growing forever, the history is split into two parts:
+
+- **the most recent messages** (10 by default) are sent to Gemini word for word;
+- **older messages** are compressed into a short summary: key facts about the user, their tasks and agreements. The summary is stored in the database, passed to the model as a system instruction and updated in batches as more old messages pile up.
+
+This way the assistant remembers both the fresh details and the big picture, while requests stay small. The number of verbatim messages and the summary batch size are set in `config.py` (`keep_last` and `summarise_every`).
 
 ## Tech stack
 
@@ -28,13 +38,17 @@ You ask a question in the web chat, the backend sends it to Gemini, saves the qu
 ## Project structure
 
 ```
-├── main.py            # FastAPI app and endpoints
-├── db.py              # database model and helper functions
-├── gemini_client.py   # Gemini API wrapper
-├── config.py          # loads settings from .env
-├── index.html         # frontend (chat)
-└── pyproject.toml     # dependencies
+├── main.py               # FastAPI app and endpoints
+├── db.py                 # database models and helper functions
+├── config.py             # settings and the API key from .env
+├── ai/
+│   ├── client.py         # abstract AI client class
+│   └── gemini_client.py  # Gemini client implementation
+├── index.html            # frontend (chat)
+└── pyproject.toml        # dependencies
 ```
+
+AI clients inherit from the abstract `Client` class. To plug in another model, you only need to write a new class with a `generate` method; the rest of the code works with any client the same way.
 
 ## Getting started
 
@@ -81,10 +95,10 @@ Then open http://localhost:5500/index.html.
 
 ## API
 
-| Method | Path        | Description                                  |
-|--------|-------------|----------------------------------------------|
-| GET    | `/requests` | Request history of the current user (by IP)  |
-| POST   | `/requests` | Send a question to the AI                    |
+| Method | Path        | Description                                        |
+|--------|-------------|----------------------------------------------------|
+| GET    | `/requests` | Full request history of the current user (by IP)   |
+| POST   | `/requests` | Send a question to the AI, with conversation context |
 
 Example request:
 
@@ -102,11 +116,14 @@ Response:
 
 ## Limitations
 
-- The AI doesn't remember the conversation: each question is sent to Gemini on its own.
 - Users are identified only by IP address; there is no authentication.
+- Each user has a single shared conversation; separate chats are not supported yet.
+- The summary of older messages loses small details: the model remembers the gist, not the exact wording.
 
 ## Roadmap
 
-- [ ] Send the conversation history to Gemini so the assistant keeps context
+- [x] Send the conversation history to Gemini so the assistant keeps context
+- [ ] Model switching: support other AI models and pick the model right in the interface
+- [ ] Multiple separate chats per user
 - [ ] Add sign-up and authentication
 - [ ] Write tests
