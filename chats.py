@@ -1,5 +1,6 @@
 """Chat endpoints: list, create, rename and delete chats, read and send messages."""
 
+import logging
 from typing import Annotated, TypeAlias
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -15,6 +16,7 @@ from db import (
 from schemas import AnswerResponse, ChatOut, ChatRename, MessageOut, PromptRequest
 
 router = APIRouter(prefix="/chats", tags=["chats"])
+logger = logging.getLogger(__name__)
 
 
 def get_owned_chat(chat_id: int, user: CurrentUser) -> Chat:
@@ -56,6 +58,16 @@ def update_summary(chat_id: int, client: Client) -> None:
 
     new_text = client.summarise(old_text, to_summarise)
     save_summary(chat_id=chat_id, text=new_text, last_summarized_id=to_summarise[-1].id)
+
+
+def name_chat(chat: Chat, client: Client, prompt: str, answer: str) -> Chat:
+    """Rename a chat with a title made up by the model; keep the old title on failure."""
+    try:
+        title = client.make_title(prompt, answer)
+    except Exception:
+        logger.exception("Couldn't generate a title for chat %s", chat.id)
+        return chat
+    return rename_chat(chat_id=chat.id, title=title) if title else chat
 
 
 @router.get("")
@@ -110,6 +122,11 @@ def send_message(chat: OwnedChat, data: PromptRequest) -> AnswerResponse:
 
     answer = client.generate(data.prompt, history, summary.text if summary else None)
     updated_chat = add_message(chat_id=chat.id, prompt=data.prompt, response=answer)
+
+    # A new chat gets a title from the model. add_message has already named it
+    # after the prompt, which stays as a fallback if the model call fails.
+    if chat.title is None:
+        updated_chat = name_chat(updated_chat, client, data.prompt, answer)
 
     update_summary(chat.id, client)
     return AnswerResponse(answer=answer, model=model_id, chat=ChatOut.model_validate(updated_chat))
