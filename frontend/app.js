@@ -45,7 +45,9 @@ function setStatus(ok, key) {
 // language and cached in the browser, so it doesn't change every time a new
 // chat is opened. Changes fade out and in.
 
-const GREETING_CACHE_PREFIX = "lagoa-greeting:";
+// The version in the key drops greetings cached by older versions, such as
+// ones written by a model before the phrase sets.
+const GREETING_CACHE_PREFIX = "lagoa-greeting:v2:";
 const HINTS_PER_GREETING = 6;
 const HINT_INTERVAL_MS = 5000;
 const FADE_MS = 300;
@@ -141,7 +143,7 @@ function cacheGreeting(key, data) {
     // languages for the current one are kept for switching back.
     const period = key.slice(0, key.lastIndexOf(":") + 1);
     Object.keys(localStorage)
-      .filter(k => k.startsWith(GREETING_CACHE_PREFIX) && !k.startsWith(period))
+      .filter(k => k.startsWith("lagoa-greeting:") && !k.startsWith(period))
       .forEach(k => localStorage.removeItem(k));
     localStorage.setItem(key, JSON.stringify(data));
   } catch {}
