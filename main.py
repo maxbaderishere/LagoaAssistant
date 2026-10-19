@@ -6,7 +6,7 @@ and maintains a running summary of older messages so the model keeps context.
 
 from fastapi import FastAPI, Body, Request
 from db import Base, add_request_data, engine, get_summary, get_unsummarized_requests, get_user_requests, save_summary
-from ai import Client, GeminiClient
+from ai import Client, GeminiClient, GroqClient
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from config import cfg
@@ -24,7 +24,9 @@ app = FastAPI(
     title="Lagoa"
     )
 
-client: Client = GeminiClient(api_key=cfg.gemini_api_key)
+#client: Client = GeminiClient(api_key=cfg.gemini_api_key)
+client: Client = GroqClient(api_key=cfg.groq_api_key)
+
 
 def update_summary(ip: str) -> None:
     """Fold old messages of a user into their conversation summary.
