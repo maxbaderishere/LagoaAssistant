@@ -1,8 +1,19 @@
 """Request and response schemas for the API."""
 
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator
+
+
+def _as_utc(value: datetime) -> datetime:
+    # SQLite drops the time zone, so times come back naive although they're
+    # stored in UTC. Marking them as UTC makes the JSON end with "+00:00",
+    # and the browser converts them to the user's local time correctly.
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
+
+
+UtcDatetime = Annotated[datetime, AfterValidator(_as_utc)]
 
 
 class AuthRequest(BaseModel):
@@ -42,8 +53,8 @@ class ChatOut(BaseModel):
 
     id: int
     title: str | None
-    created_at: datetime
-    updated_at: datetime
+    created_at: UtcDatetime
+    updated_at: UtcDatetime
 
 
 class ChatRename(BaseModel):
@@ -84,7 +95,7 @@ class UserOut(BaseModel):
 
     id: int
     login: str
-    created_at: datetime
+    created_at: UtcDatetime
 
 
 class TokenResponse(BaseModel):
