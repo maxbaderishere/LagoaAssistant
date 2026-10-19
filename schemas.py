@@ -17,6 +17,25 @@ class AuthRequest(BaseModel):
         return value.strip().lower() if isinstance(value, str) else value
 
 
+class PromptRequest(BaseModel):
+    """A question for the assistant and, optionally, the model to answer it."""
+    prompt: str = Field(min_length=1)
+    model: str | None = None
+
+
+class ModelOut(BaseModel):
+    """A model the user can pick."""
+    id: str
+    name: str
+    provider: str
+
+
+class ModelsResponse(BaseModel):
+    """Available models and the one used by default."""
+    default: str
+    models: list[ModelOut]
+
+
 class UserOut(BaseModel):
     """Public information about a user. Never includes the password hash."""
     model_config = ConfigDict(from_attributes=True)

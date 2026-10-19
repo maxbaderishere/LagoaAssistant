@@ -3,5 +3,6 @@
 from ai.client import Client
 from ai.gemini_client import GeminiClient
 from ai.groq_client import GroqClient
+from ai.registry import ModelInfo, ModelRegistry, UnknownModelError
 
-__all__ = ["Client", "GeminiClient", "GroqClient"]
+__all__ = ["Client", "GeminiClient", "GroqClient", "ModelInfo", "ModelRegistry", "UnknownModelError"]

@@ -1,14 +1,17 @@
 """FastAPI application for Lagoa, a personal AI assistant.
 
-Exposes the auth and chat endpoints, keeps each user's conversation history in
-the database and maintains a running summary of older messages so the model
-keeps context.
+Exposes the auth, model and chat endpoints, keeps each user's conversation
+history in the database and maintains a running summary of older messages so
+the model keeps context.
 """
 
-from fastapi import FastAPI, Body
+from dataclasses import asdict
+
+from fastapi import FastAPI, HTTPException
 from db import Base, add_request_data, engine, get_summary, get_unsummarized_requests, get_user_requests, save_summary
-from ai import Client, GeminiClient, GroqClient
+from ai import Client, GeminiClient, GroqClient, ModelInfo, ModelRegistry, UnknownModelError
 from auth import CurrentUser, router as auth_router
+from schemas import ModelsResponse, PromptRequest
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from config import cfg
@@ -27,11 +30,30 @@ app = FastAPI(
     )
 app.include_router(auth_router)
 
-#client: Client = GeminiClient(api_key=cfg.gemini_api_key)
-client: Client = GroqClient(api_key=cfg.groq_api_key)
+
+def build_registry() -> ModelRegistry:
+    """Create a client for every model in ``cfg.models`` whose provider has an API key."""
+    providers = {
+        "groq": (GroqClient, cfg.groq_api_key),
+        "gemini": (GeminiClient, cfg.gemini_api_key),
+    }
+    registry = ModelRegistry()
+    for entry in cfg.models:
+        client_class, api_key = providers[entry["provider"]]
+        if not api_key:
+            continue
+        registry.register(
+            ModelInfo(id=entry["model"], name=entry["name"], provider=entry["provider"]),
+            client_class(api_key=api_key, model=entry["model"]),
+            default=entry["model"] == cfg.default_model,
+        )
+    return registry
 
 
-def update_summary(user_id: int) -> None:
+registry = build_registry()
+
+
+def update_summary(user_id: int, client: Client) -> None:
     """Fold old messages of a user into their conversation summary.
 
     The last ``cfg.keep_last`` messages are always left out, because they are
@@ -41,6 +63,7 @@ def update_summary(user_id: int) -> None:
 
     Args:
         user_id: Id of the user whose summary to update.
+        client: Client of the model that writes the summary.
     """
     summary = get_summary(user_id=user_id)
     old_text = summary.text if summary else ""
@@ -54,6 +77,16 @@ def update_summary(user_id: int) -> None:
     new_text = client.summarise(old_text, to_summarise)
     save_summary(user_id=user_id, text=new_text, last_summarized_id=to_summarise[-1].id)
 
+
+@app.get("/models")
+def get_models() -> ModelsResponse:
+    """Return the models users can pick and the default one."""
+    return ModelsResponse(
+        default=registry.default_id,
+        models=[asdict(info) for info in registry.models()],
+    )
+
+
 @app.get("/requests")
 def get_requests(user: CurrentUser):
     """Return the full chat history of the signed-in user, oldest first."""
@@ -61,7 +94,7 @@ def get_requests(user: CurrentUser):
 
 
 @app.post("/requests")
-def send_prompt(user: CurrentUser, prompt: str = Body(embed=True)):
+def send_prompt(user: CurrentUser, data: PromptRequest):
     """Answer a prompt using the recent history and the conversation summary.
 
     The question and the answer are saved to the database, and the summary is
@@ -69,19 +102,25 @@ def send_prompt(user: CurrentUser, prompt: str = Body(embed=True)):
 
     Args:
         user: The signed-in user.
-        prompt: The user's question.
+        data: The user's question and, optionally, the model to answer it.
 
     Returns:
-        A dict with the model's reply under the ``answer`` key.
+        A dict with the model's reply under ``answer`` and the model id under ``model``.
     """
+    model_id = data.model or registry.default_id
+    try:
+        client = registry.get(model_id)
+    except UnknownModelError:
+        raise HTTPException(status_code=400, detail=f"Unknown model: {model_id}")
+
     summary = get_summary(user_id=user.id)
     history = get_user_requests(user_id=user.id, limit=cfg.keep_last)
 
-    response = client.generate(prompt, history, summary.text if summary else None)
-    add_request_data(user_id=user.id, prompt=prompt, response=response)
+    response = client.generate(data.prompt, history, summary.text if summary else None)
+    add_request_data(user_id=user.id, prompt=data.prompt, response=response)
 
-    update_summary(user.id)
-    return {"answer": response}
+    update_summary(user.id, client)
+    return {"answer": response, "model": model_id}
 
 
 app.add_middleware(

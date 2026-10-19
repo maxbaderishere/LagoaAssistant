@@ -11,7 +11,7 @@ Lagoa can work with different AI providers: **Groq** (the default) and **Google 
 ## Features
 
 - Chat with an AI model through a web interface
-- **Multiple AI providers:** Groq and Gemini behind a common interface, switched with one line
+- **Multiple AI providers:** Groq and Gemini, with the model picked right in the chat
 - **Conversation memory:** Lagoa remembers the context of previous messages
 - Request history stored in SQLite
 - **Accounts:** sign-up and sign-in with a login and password, each user has their own history
@@ -54,7 +54,8 @@ This way the assistant remembers both the fresh details and the big picture, whi
 ├── ai/
 │   ├── client.py         # abstract AI client class
 │   ├── gemini_client.py  # Gemini client implementation
-│   └── groq_client.py    # Groq client implementation
+│   ├── groq_client.py    # Groq client implementation
+│   └── registry.py       # registry of available models
 ├── frontend/
 │   ├── index.html        # chat page
 │   ├── login.html        # sign-in and sign-up page
@@ -68,16 +69,19 @@ This way the assistant remembers both the fresh details and the big picture, whi
 
 ## AI providers
 
-AI clients inherit from the abstract `Client` class. To plug in another model, you only need to write a new class with a `generate` method; the rest of the code works with any client the same way.
+AI clients inherit from the abstract `Client` class. To plug in a new provider, you only need to write a class with a `generate` method; the rest of the code works with any client the same way.
 
-The provider is chosen with one line in `main.py`:
+The available models are listed in `config.py`:
 
 ```python
-client: Client = GroqClient(api_key=cfg.groq_api_key)        # Groq (default)
-# client: Client = GeminiClient(api_key=cfg.gemini_api_key)  # Gemini
+models = [
+    {"provider": "groq", "model": "qwen/qwen3.8-27b", "name": "Qwen 3.8 27B"},
+    {"provider": "gemini", "model": "gemini-3.6-flash", "name": "Gemini 3.6 Flash"},
+]
+default_model = "qwen/qwen3.8-27b"
 ```
 
-A specific model can be passed with the `model` parameter, e.g. `GroqClient(api_key=..., model="...")`. See the model lists in the [Groq](https://console.groq.com/docs/models) and [Gemini](https://ai.google.dev/gemini-api/docs/models) docs.
+On startup, `ModelRegistry` (`ai/registry.py`) creates a client for every model whose provider has an API key set. Users pick a model in the chat header, and the choice is remembered in the browser. To add another model from the same provider, add a line to `models`. See the model names in the [Groq](https://console.groq.com/docs/models) and [Gemini](https://ai.google.dev/gemini-api/docs/models) docs.
 
 ## Getting started
 
@@ -164,14 +168,13 @@ Response:
 - The sign-in token is kept in the browser's `localStorage`: simple, but less protected against XSS than an httpOnly cookie.
 - Each user has a single shared conversation; separate chats are not supported yet.
 - The summary of older messages loses small details: the model remembers the gist, not the exact wording.
-- The model is chosen in code, not in the interface.
 
 ## Roadmap
 
 - [x] Send the conversation history to the model so the assistant keeps context
 - [x] Support multiple AI providers (Groq and Gemini)
 - [x] Add sign-up and authentication
-- [ ] Pick the model right in the interface
+- [x] Pick the model right in the interface
 - [ ] Multiple separate chats per user
 - [ ] Add more interface languages
 - [ ] Write tests

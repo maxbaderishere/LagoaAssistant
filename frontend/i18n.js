@@ -1,8 +1,6 @@
 // Interface translations. Static text in index.html is marked with data-i18n
 // attributes; dynamic text in app.js goes through t().
 
-const MODEL_NAME = "Gemini";
-
 const TRANSLATIONS = {
   ru: {
     chats: "Чаты",
@@ -13,11 +11,11 @@ const TRANSLATIONS = {
     yourDialog: "Ваш диалог",
     newConversation: "Новый разговор",
     connecting: "Подключение к API…",
-    apiConnected: "{model} · API подключено",
+    apiConnected: "API подключено",
     apiUnavailable: "API недоступно",
     requestFailed: "Ошибка запроса",
     openMenu: "Открыть меню",
-    model: "Модель: {model}",
+    modelLabel: "Модель",
     conversation: "Переписка",
     greetingNight: "Доброй ночи",
     greetingMorning: "Доброе утро",
@@ -36,7 +34,7 @@ const TRANSLATIONS = {
     codeTitle: "Помочь с кодом",
     codeSub: "Найти ошибку и объяснить её",
     codePrompt: "Помоги разобраться с ошибкой в моём коде на Python. Сначала спроси, что за ошибка.",
-    disclaimer: "Lagoa работает на {model} и может ошибаться. Проверяйте важное.",
+    disclaimer: "Lagoa может ошибаться. Проверяйте важное.",
     messageLabel: "Сообщение для Lagoa",
     placeholder: "Спросите Lagoa о чём угодно",
     hint: "Enter — отправить, Shift+Enter — новая строка",
@@ -78,11 +76,11 @@ const TRANSLATIONS = {
     yourDialog: "Your conversation",
     newConversation: "New conversation",
     connecting: "Connecting to the API…",
-    apiConnected: "{model} · API connected",
+    apiConnected: "API connected",
     apiUnavailable: "API unavailable",
     requestFailed: "Request failed",
     openMenu: "Open menu",
-    model: "Model: {model}",
+    modelLabel: "Model",
     conversation: "Conversation",
     greetingNight: "Good night",
     greetingMorning: "Good morning",
@@ -101,7 +99,7 @@ const TRANSLATIONS = {
     codeTitle: "Help with code",
     codeSub: "Find a bug and explain it",
     codePrompt: "Help me figure out a bug in my Python code. First ask what the error is.",
-    disclaimer: "Lagoa runs on {model} and can make mistakes. Double-check what matters.",
+    disclaimer: "Lagoa can make mistakes. Double-check what matters.",
     messageLabel: "Message to Lagoa",
     placeholder: "Ask Lagoa anything",
     hint: "Enter to send, Shift+Enter for a new line",
@@ -151,7 +149,7 @@ let currentLang = detectLanguage();
 // Returns the translation for key, with {name} placeholders filled from params.
 function t(key, params = {}) {
   const text = TRANSLATIONS[currentLang][key] ?? TRANSLATIONS.ru[key] ?? key;
-  return text.replace(/\{(\w+)\}/g, (_, name) => params[name] ?? (name === "model" ? MODEL_NAME : `{${name}}`));
+  return text.replace(/\{(\w+)\}/g, (_, name) => params[name] ?? `{${name}}`);
 }
 
 // Fills every element marked with data-i18n* attributes inside root.

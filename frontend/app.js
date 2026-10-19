@@ -174,6 +174,31 @@ function addError(text) {
 
 // ---------- API ----------
 
+const MODEL_STORAGE_KEY = "lagoa-model";
+const modelPill = document.getElementById("modelPill");
+const modelSelect = document.getElementById("modelSelect");
+
+// Fills the model picker; the last picked model is remembered in the browser.
+async function loadModels() {
+  try {
+    const res = await apiFetch("/models");
+    if (!res.ok) return;
+    const { default: defaultId, models } = await res.json();
+    if (models.length === 0) return;
+    let saved = null;
+    try { saved = localStorage.getItem(MODEL_STORAGE_KEY); } catch {}
+    const selected = models.some(m => m.id === saved) ? saved : defaultId;
+    modelSelect.replaceChildren(...models.map(m => new Option(m.name, m.id, false, m.id === selected)));
+    modelPill.hidden = false;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+modelSelect.addEventListener("change", () => {
+  try { localStorage.setItem(MODEL_STORAGE_KEY, modelSelect.value); } catch {}
+});
+
 async function loadUser() {
   try {
     const res = await apiFetch("/auth/me");
@@ -220,7 +245,7 @@ async function sendPrompt(prompt) {
   try {
     const res = await apiFetch("/requests", {
       method: "POST",
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ prompt, model: modelSelect.value || null }),
     });
     if (!res.ok) throw new Error(t("serverError", { status: res.status }));
     const data = await res.json();
@@ -283,4 +308,5 @@ applyTranslations();
 setGreeting();
 input.focus();
 loadUser();
+loadModels();
 loadHistory();
