@@ -256,6 +256,7 @@ function addUserMessage(text) {
   el.textContent = text;
   messages.appendChild(el);
   scrollToBottom();
+  return el;
 }
 
 function botShell() {
@@ -690,20 +691,57 @@ async function openChat(chatId) {
 
 // ---------- sending ----------
 
+// The request in progress; the stop button aborts it.
+let activeRequest = null;
+
+function setSending(sending) {
+  sendBtn.classList.toggle("is-stop", sending);
+  const key = sending ? "stop" : "send";
+  sendBtn.dataset.i18nAriaLabel = key;
+  sendBtn.dataset.i18nTitle = key;
+  sendBtn.setAttribute("aria-label", t(key));
+  sendBtn.title = t(key);
+}
+
+// The server doesn't save an answer the user stopped, so the question goes
+// back into the input to be edited or sent again. A chat created for this
+// question alone is removed again.
+async function undoStoppedPrompt(prompt, userEl, createdChatId) {
+  userEl.remove();
+  if (!input.value) {
+    input.value = prompt;
+    autoResize();
+  }
+  if (createdChatId !== null && !messages.querySelector(".msg-user")) {
+    chats = chats.filter(c => c.id !== createdChatId);
+    if (currentChatId === createdChatId) startNewChat();
+    else renderChatList();
+    try {
+      await apiFetch(`/chats/${createdChatId}`, { method: "DELETE" });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+}
+
 async function sendPrompt(prompt) {
   clearQuickReplies();
   showChat();
-  addUserMessage(prompt);
+  const userEl = addUserMessage(prompt);
   const thinking = addThinking();
-  sendBtn.disabled = true;
+  const controller = new AbortController();
+  activeRequest = controller;
+  setSending(true);
+  let createdChatId = null;
 
   try {
     // A new chat is created on the server only when its first message is sent.
     if (currentChatId === null) {
-      const res = await apiFetch("/chats", { method: "POST" });
+      const res = await apiFetch("/chats", { method: "POST", signal: controller.signal });
       if (!res.ok) throw new Error(t("serverError", { status: res.status }));
       const chat = await res.json();
       currentChatId = chat.id;
+      createdChatId = chat.id;
       setHash(chat.id);
       upsertChat(chat);
     }
@@ -711,6 +749,7 @@ async function sendPrompt(prompt) {
     const res = await apiFetch(`/chats/${chatId}/messages`, {
       method: "POST",
       body: JSON.stringify({ prompt, model: selectedModelId }),
+      signal: controller.signal,
     });
     if (!res.ok) throw new Error(t("serverError", { status: res.status }));
     const data = await res.json();
@@ -721,10 +760,15 @@ async function sendPrompt(prompt) {
     setStatus(true, "apiConnected");
   } catch (e) {
     thinking.remove();
-    addError(e instanceof TypeError ? t("networkError") : e.message);
-    setStatus(false, "requestFailed");
+    if (e.name === "AbortError") {
+      await undoStoppedPrompt(prompt, userEl, createdChatId);
+    } else {
+      addError(e instanceof TypeError ? t("networkError") : e.message);
+      setStatus(false, "requestFailed");
+    }
   } finally {
-    sendBtn.disabled = false;
+    activeRequest = null;
+    setSending(false);
     input.focus();
   }
 }
@@ -738,7 +782,7 @@ function autoResize() {
 
 function submitPrompt(text) {
   const prompt = text.trim();
-  if (!prompt || sendBtn.disabled) return;
+  if (!prompt || activeRequest) return;
   input.value = "";
   autoResize();
   sendPrompt(prompt);
@@ -753,7 +797,9 @@ input.addEventListener("keydown", e => {
 });
 form.addEventListener("submit", e => {
   e.preventDefault();
-  submitPrompt(input.value);
+  // While an answer is on its way the button is a stop button.
+  if (activeRequest) activeRequest.abort();
+  else submitPrompt(input.value);
 });
 
 document.querySelectorAll(".suggestion").forEach(btn => {

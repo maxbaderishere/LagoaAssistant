@@ -1,9 +1,11 @@
 """Chat endpoints: list, create, rename and delete chats, read and send messages."""
 
+import asyncio
 import logging
 from typing import Annotated, TypeAlias
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from starlette.concurrency import run_in_threadpool
 
 from backend.ai import Client, UnknownModelError
 from backend.ai.setup import quick_reply_client, registry, title_client
@@ -112,12 +114,31 @@ def list_messages(chat: OwnedChat) -> list[MessageOut]:
     return [MessageOut.model_validate(m) for m in get_chat_messages(chat_id=chat.id)]
 
 
+# Not a real HTTP status, but a common convention (from nginx) for "the client
+# closed the request"; nobody receives it, it only shows up in the server log.
+CLIENT_CLOSED_REQUEST = 499
+
+
+async def wait_for_disconnect(request: Request) -> None:
+    """Return once the client closes the connection, e.g. presses the stop button.
+
+    Waiting the whole time is what makes this reliable: after the request body
+    is read, the server only notices a closed connection while it's listening.
+    """
+    while (await request.receive())["type"] != "http.disconnect":
+        pass
+
+
 @router.post("/{chat_id}/messages")
-def send_message(chat: OwnedChat, data: PromptRequest) -> AnswerResponse:
+async def send_message(request: Request, chat: OwnedChat, data: PromptRequest) -> AnswerResponse:
     """Answer a prompt using the chat's recent messages and its summary.
 
     The question and the answer are saved to the chat, and the summary is
-    refreshed afterwards if enough old messages have accumulated.
+    refreshed afterwards if enough old messages have accumulated. If the user
+    cancels the request while the model is answering, nothing is saved.
+
+    The endpoint is async only to notice the cancellation; the blocking model
+    and database calls run in a thread pool.
 
     Raises:
         HTTPException: 400 if the requested model is not available.
@@ -128,19 +149,30 @@ def send_message(chat: OwnedChat, data: PromptRequest) -> AnswerResponse:
     except UnknownModelError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown model: {model_id}")
 
-    summary = get_summary(chat_id=chat.id)
-    history = get_chat_messages(chat_id=chat.id, limit=cfg.keep_last)
+    summary = await run_in_threadpool(get_summary, chat_id=chat.id)
+    history = await run_in_threadpool(get_chat_messages, chat_id=chat.id, limit=cfg.keep_last)
 
-    answer = client.generate(data.prompt, history, summary.text if summary else None)
-    updated_chat = add_message(chat_id=chat.id, prompt=data.prompt, response=answer)
+    disconnected = asyncio.create_task(wait_for_disconnect(request))
+    try:
+        answer = await run_in_threadpool(client.generate, data.prompt, history, summary.text if summary else None)
+    finally:
+        cancelled = disconnected.done()
+        disconnected.cancel()
+
+    # The model can't be interrupted mid-answer, but a cancelled answer isn't saved.
+    if cancelled:
+        logger.info("Request for chat %s was cancelled; the answer is not saved", chat.id)
+        return Response(status_code=CLIENT_CLOSED_REQUEST)
+
+    updated_chat = await run_in_threadpool(add_message, chat_id=chat.id, prompt=data.prompt, response=answer)
 
     # A new chat gets a title from the small title model if there is one,
     # otherwise from the chat's model. add_message has already named it
     # after the prompt, which stays as a fallback if the model call fails.
     if chat.title is None:
-        updated_chat = name_chat(updated_chat, title_client or client, data.prompt, answer)
+        updated_chat = await run_in_threadpool(name_chat, updated_chat, title_client or client, data.prompt, answer)
 
-    update_summary(chat.id, client)
+    await run_in_threadpool(update_summary, chat.id, client)
     return AnswerResponse(answer=answer, model=model_id, chat=ChatOut.model_validate(updated_chat))
 
 
