@@ -23,15 +23,22 @@ def _ollama_has(model: str) -> bool:
     return model in _local_models or f"{model}:latest" in _local_models
 
 
+# Cloud providers: the client class and the name of the API key it needs in
+# ``cfg.api_keys``. The key name follows the company, so "claude" needs "anthropic".
+_CLOUD_PROVIDERS: dict[str, tuple[type[Client], str]] = {
+    "groq": (GroqClient, "groq"),
+    "gemini": (GeminiClient, "gemini"),
+    "claude": (ClaudeClient, "anthropic"),
+}
+
+
 def make_client(entry: dict) -> Client | None:
     """Create a client for a model entry from config.py, or None if it can't be used now."""
     provider, model = entry["provider"], entry["model"]
-    if provider == "groq":
-        return GroqClient(api_key=cfg.groq_api_key, model=model) if cfg.groq_api_key else None
-    if provider == "claude":
-        return ClaudeClient(api_key=cfg.anthropic_api_key, model=model) if cfg.anthropic_api_key else None
-    if provider == "gemini":
-        return GeminiClient(api_key=cfg.gemini_api_key, model=model) if cfg.gemini_api_key else None
+    if provider in _CLOUD_PROVIDERS:
+        client_class, key_name = _CLOUD_PROVIDERS[provider]
+        api_key = cfg.api_keys.get(key_name)
+        return client_class(api_key=api_key, model=model) if api_key else None
     if provider == "ollama":
         return OllamaClient(model=model, base_url=cfg.ollama_url) if _ollama_has(model) else None
     raise ValueError(f"Unknown provider: {provider}")

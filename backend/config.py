@@ -9,15 +9,28 @@ import os
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
+API_KEY_SUFFIX = "_API_KEY"
+
+
+def load_api_keys() -> dict[str, str]:
+    """Collect every ``<NAME>_API_KEY`` environment variable that has a value.
+
+    The dictionary is keyed by the lowercase name: ``GROQ_API_KEY`` becomes
+    ``"groq"``. A new key only needs a line in .env, not a change here.
+    """
+    return {
+        name.removesuffix(API_KEY_SUFFIX).lower(): value
+        for name, value in os.environ.items()
+        if name.endswith(API_KEY_SUFFIX) and value
+    }
 
 
 class Config:
     """Application settings.
 
     Attributes:
-        gemini_api_key: API key for Google Gemini, read from ``GEMINI_API_KEY``.
-        groq_api_key: API key for Groq, read from ``GROQ_API_KEY``.
-        anthropic_api_key: API key for Claude, read from ``ANTHROPIC_API_KEY``.
+        api_keys: API keys by service, from every ``<NAME>_API_KEY`` variable
+            (``groq``, ``gemini``, ``anthropic``...), see ``load_api_keys``.
         jwt_secret: Secret used to sign access tokens, read from ``JWT_SECRET``.
         jwt_algorithm: Algorithm used to sign access tokens.
         access_token_expire_minutes: How long an access token stays valid.
@@ -45,9 +58,7 @@ class Config:
             skips it (used for quick replies so they never spend the cloud
             models' limits).
     """
-    gemini_api_key = os.getenv("GEMINI_API_KEY")
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_keys = load_api_keys()
     database_url = f"sqlite:///{(PROJECT_ROOT / 'data.db').as_posix()}"
     ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
     jwt_secret = os.getenv("JWT_SECRET")
