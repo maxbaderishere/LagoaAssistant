@@ -174,30 +174,105 @@ function addError(text) {
 
 // ---------- API ----------
 
-const MODEL_STORAGE_KEY = "lagoa-model";
-const modelPill = document.getElementById("modelPill");
-const modelSelect = document.getElementById("modelSelect");
+// ---------- model picker ----------
 
-// Fills the model picker; the last picked model is remembered in the browser.
+const MODEL_STORAGE_KEY = "lagoa-model";
+const PROVIDER_NAMES = { groq: "Groq", gemini: "Google Gemini" };
+const CHECK_ICON = '<svg class="model-option-check" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+
+const modelPicker = document.getElementById("modelPicker");
+const modelBtn = document.getElementById("modelBtn");
+const modelName = document.getElementById("modelName");
+const modelMenu = document.getElementById("modelMenu");
+
+let models = [];
+let selectedModelId = null;
+
+function selectModel(id) {
+  const model = models.find(m => m.id === id);
+  if (!model) return;
+  selectedModelId = id;
+  modelName.textContent = model.name;
+  modelBtn.setAttribute("aria-label", `${t("modelLabel")}: ${model.name}`);
+  modelMenu.querySelectorAll(".model-option").forEach(li => {
+    li.setAttribute("aria-selected", String(li.dataset.id === id));
+  });
+  try { localStorage.setItem(MODEL_STORAGE_KEY, id); } catch {}
+}
+
+function renderModelMenu() {
+  modelMenu.replaceChildren(...models.map(m => {
+    const li = document.createElement("li");
+    li.className = "model-option";
+    li.setAttribute("role", "option");
+    li.tabIndex = -1;
+    li.dataset.id = m.id;
+    li.innerHTML = `<span class="model-option-text"><span class="model-option-name"></span><span class="model-option-provider"></span></span>${CHECK_ICON}`;
+    li.querySelector(".model-option-name").textContent = m.name;
+    li.querySelector(".model-option-provider").textContent = PROVIDER_NAMES[m.provider] ?? m.provider;
+    li.addEventListener("click", () => {
+      selectModel(m.id);
+      closeModelMenu(true);
+    });
+    return li;
+  }));
+}
+
+function openModelMenu() {
+  modelMenu.hidden = false;
+  modelBtn.setAttribute("aria-expanded", "true");
+  const current = modelMenu.querySelector('[aria-selected="true"]') ?? modelMenu.firstElementChild;
+  current?.focus();
+}
+
+function closeModelMenu(returnFocus = false) {
+  if (modelMenu.hidden) return;
+  modelMenu.hidden = true;
+  modelBtn.setAttribute("aria-expanded", "false");
+  if (returnFocus) modelBtn.focus();
+}
+
+modelBtn.addEventListener("click", () => {
+  if (modelMenu.hidden) openModelMenu();
+  else closeModelMenu();
+});
+
+modelMenu.addEventListener("keydown", e => {
+  const options = [...modelMenu.querySelectorAll(".model-option")];
+  const index = options.indexOf(document.activeElement);
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    e.preventDefault();
+    const step = e.key === "ArrowDown" ? 1 : -1;
+    options[(index + step + options.length) % options.length].focus();
+  } else if ((e.key === "Enter" || e.key === " ") && index >= 0) {
+    e.preventDefault();
+    options[index].click();
+  } else if (e.key === "Escape" || e.key === "Tab") {
+    closeModelMenu(e.key === "Escape");
+  }
+});
+
+document.addEventListener("click", e => {
+  if (!modelPicker.contains(e.target)) closeModelMenu();
+});
+
+// Loads the available models; the last picked one is remembered in the browser.
 async function loadModels() {
   try {
     const res = await apiFetch("/models");
     if (!res.ok) return;
-    const { default: defaultId, models } = await res.json();
+    const data = await res.json();
+    models = data.models;
     if (models.length === 0) return;
     let saved = null;
     try { saved = localStorage.getItem(MODEL_STORAGE_KEY); } catch {}
-    const selected = models.some(m => m.id === saved) ? saved : defaultId;
-    modelSelect.replaceChildren(...models.map(m => new Option(m.name, m.id, false, m.id === selected)));
-    modelPill.hidden = false;
+    renderModelMenu();
+    selectModel(models.some(m => m.id === saved) ? saved : data.default);
+    modelPicker.hidden = false;
   } catch (e) {
     console.error(e);
   }
 }
-
-modelSelect.addEventListener("change", () => {
-  try { localStorage.setItem(MODEL_STORAGE_KEY, modelSelect.value); } catch {}
-});
 
 async function loadUser() {
   try {
@@ -245,7 +320,7 @@ async function sendPrompt(prompt) {
   try {
     const res = await apiFetch("/requests", {
       method: "POST",
-      body: JSON.stringify({ prompt, model: modelSelect.value || null }),
+      body: JSON.stringify({ prompt, model: selectedModelId }),
     });
     if (!res.ok) throw new Error(t("serverError", { status: res.status }));
     const data = await res.json();
