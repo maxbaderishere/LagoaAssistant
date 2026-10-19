@@ -3,7 +3,7 @@
 from groq import Groq
 
 from backend.ai.client import Client
-from backend.db import ChatRequests
+from backend.ai.context import Context
 
 
 class GroqClient(Client):
@@ -19,22 +19,7 @@ class GroqClient(Client):
         self._client = Groq(api_key=api_key)
         self._model = model
 
-    def generate(self, prompt: str, history: list[ChatRequests], summary: str | None = None) -> str:
-        """Generate an answer with a Groq model.
-
-        The summary, if any, goes first as a system message, followed by the
-        history as alternating user and assistant messages.
-        """
-        messages = []
-        if summary:
-            messages.append({
-                "role": "system",
-                "content": f"Краткое содержание вашего прошлого диалога с пользователем:\n{summary}",
-            })
-        for item in history:
-            messages.append({"role": "user", "content": item.promt})
-            messages.append({"role": "assistant", "content": item.response})
-        messages.append({"role": "user", "content": prompt})
-
-        response = self._client.chat.completions.create(model=self._model, messages=messages)
+    def _complete(self, context: Context) -> str:
+        """Send the context to a Groq model in the chat format."""
+        response = self._client.chat.completions.create(model=self._model, messages=context.as_chat_messages())
         return response.choices[0].message.content or ""

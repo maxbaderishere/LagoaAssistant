@@ -4,7 +4,7 @@ from google import genai
 from google.genai import types
 
 from backend.ai.client import Client
-from backend.db import ChatRequests
+from backend.ai.context import Context
 
 
 class GeminiClient(Client):
@@ -20,25 +20,16 @@ class GeminiClient(Client):
         self._client = genai.Client(api_key=api_key)
         self._model = model
 
-    def generate(self, prompt: str, history: list[ChatRequests], summary: str | None = None) -> str:
-        """Generate an answer with Gemini.
+    def _complete(self, context: Context) -> str:
+        """Send the context to Gemini.
 
-        The history is sent as alternating user and model turns, and the
-        summary, if any, is passed as a system instruction.
+        Gemini calls the assistant role "model" and takes the system text as
+        a system instruction in the config.
         """
-        contents = []
-        for item in history:
-            contents.append({"role": "user", "parts": [{"text": item.promt}]})
-            contents.append({"role": "model", "parts": [{"text": item.response}]})
-        contents.append({"role": "user", "parts": [{"text": prompt}]})
-
-        config = None
-        if summary:
-            config = types.GenerateContentConfig(
-                system_instruction=f"Краткое содержание вашего прошлого диалога с пользователем:\n{summary}"
-            )
-
-        response = self._client.models.generate_content(
-            model=self._model, contents=contents, config=config
-        )
+        contents = [
+            {"role": "model" if m.role == "assistant" else "user", "parts": [{"text": m.text}]}
+            for m in context.messages
+        ]
+        config = types.GenerateContentConfig(system_instruction=context.system) if context.system else None
+        response = self._client.models.generate_content(model=self._model, contents=contents, config=config)
         return response.text

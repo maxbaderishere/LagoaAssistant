@@ -5,7 +5,7 @@ import re
 import httpx
 
 from backend.ai.client import Client
-from backend.db import ChatRequests
+from backend.ai.context import Context
 
 
 class OllamaClient(Client):
@@ -22,26 +22,11 @@ class OllamaClient(Client):
         self._model = model
         self._http = httpx.Client(base_url=base_url, timeout=timeout)
 
-    def generate(self, prompt: str, history: list[ChatRequests], summary: str | None = None) -> str:
-        """Generate an answer with the local model.
-
-        The summary, if any, goes first as a system message, followed by the
-        history as alternating user and assistant messages.
-        """
-        messages = []
-        if summary:
-            messages.append({
-                "role": "system",
-                "content": f"Краткое содержание вашего прошлого диалога с пользователем:\n{summary}",
-            })
-        for item in history:
-            messages.append({"role": "user", "content": item.promt})
-            messages.append({"role": "assistant", "content": item.response})
-        messages.append({"role": "user", "content": prompt})
-
+    def _complete(self, context: Context) -> str:
+        """Send the context to the local model in the chat format."""
         response = self._http.post(
             "/api/chat",
-            json={"model": self._model, "messages": messages, "stream": False, "think": False},
+            json={"model": self._model, "messages": context.as_chat_messages(), "stream": False, "think": False},
         )
         response.raise_for_status()
         text = response.json()["message"]["content"]
