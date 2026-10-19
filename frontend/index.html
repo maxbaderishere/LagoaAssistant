@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lagoa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500&family=JetBrains+Mono&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="sidebar" data-i18n-aria-label="chats">
+  <div class="brand">
+    <svg width="30" height="30" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="14" stroke="#7FB3A8" stroke-width="1.6"/><path d="M7 15c2.2-2 4.4-2 6.6 0s4.4 2 6.6 0 3.3-1.4 4.8-.6" stroke="#E8956B" stroke-width="1.8" stroke-linecap="round"/><path d="M8.5 20c2-1.6 3.9-1.6 5.8 0s3.9 1.6 5.8 0" stroke="#7FB3A8" stroke-width="1.6" stroke-linecap="round"/></svg>
+    <span class="brand-name">Lagoa</span>
+    <span class="beta" data-i18n="beta"></span>
+  </div>
+
+  <button type="button" class="new-chat" disabled data-i18n-title="newChatSoon">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    <span data-i18n="newChat"></span> <span class="soon" data-i18n="soon"></span>
+  </button>
+
+  <div class="chat-list">
+    <div class="chat-list-label" data-i18n="yourDialog"></div>
+    <div class="chat-item" id="chatItem" data-i18n="newConversation"></div>
+  </div>
+
+  <div class="sidebar-footer">
+    <span class="status-dot" id="statusDot"></span>
+    <span class="status-text" id="statusText" data-i18n="connecting"></span>
+    <div class="lang-switch" role="group" data-i18n-aria-label="language">
+      <button type="button" data-lang="ru">RU</button>
+      <button type="button" data-lang="en">EN</button>
+    </div>
+  </div>
+</nav>
+<div class="backdrop" id="backdrop"></div>
+
+<div class="main">
+  <header class="topbar">
+    <button type="button" class="icon-btn" id="menuBtn" data-i18n-aria-label="openMenu">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h16"/></svg>
+    </button>
+    <h1 id="chatTitle">Lagoa</h1>
+    <span class="model-pill" data-i18n="model"></span>
+    <span class="icon-btn" aria-hidden="true"></span>
+  </header>
+
+  <!-- Экран приветствия: показывается, пока в истории нет сообщений -->
+  <section class="welcome" id="welcome" hidden>
+    <div class="welcome-inner">
+      <svg width="64" height="64" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="14" stroke="#7FB3A8" stroke-width="1"/><path d="M7 15c2.2-2 4.4-2 6.6 0s4.4 2 6.6 0 3.3-1.4 4.8-.6" stroke="#E8956B" stroke-width="1.3" stroke-linecap="round"/><path d="M8.5 20c2-1.6 3.9-1.6 5.8 0s3.9 1.6 5.8 0" stroke="#7FB3A8" stroke-width="1.2" stroke-linecap="round"/></svg>
+      <div>
+        <h2 id="greeting"></h2>
+        <p class="welcome-sub" data-i18n="welcomeSub"></p>
+      </div>
+      <div id="welcomeSlot" style="width: 100%"></div>
+      <div class="suggestions">
+        <button type="button" class="suggestion" data-i18n-prompt="tripPrompt">
+          <b data-i18n="tripTitle"></b><span data-i18n="tripSub"></span>
+        </button>
+        <button type="button" class="suggestion" data-i18n-prompt="letterPrompt">
+          <b data-i18n="letterTitle"></b><span data-i18n="letterSub"></span>
+        </button>
+        <button type="button" class="suggestion" data-i18n-prompt="explainPrompt">
+          <b data-i18n="explainTitle"></b><span data-i18n="explainSub"></span>
+        </button>
+        <button type="button" class="suggestion" data-i18n-prompt="codePrompt">
+          <b data-i18n="codeTitle"></b><span data-i18n="codeSub"></span>
+        </button>
+      </div>
+      <p class="disclaimer" style="margin: 0" data-i18n="disclaimer"></p>
+    </div>
+  </section>
+
+  <!-- Переписка -->
+  <section class="scroll" id="scroll" data-i18n-aria-label="conversation" hidden>
+    <div class="messages" id="messages"></div>
+  </section>
+
+  <div class="dock" id="dock" hidden>
+    <div id="dockSlot"></div>
+    <p class="disclaimer" data-i18n="disclaimer"></p>
+  </div>
+</div>
+
+<!-- Поле ввода одно, оно переезжает между экраном приветствия и нижней панелью чата -->
+<template id="composerTpl">
+  <form class="composer" id="composer">
+    <label for="input" class="sr-only" data-i18n="messageLabel"></label>
+    <textarea id="input" rows="2" data-i18n-placeholder="placeholder"></textarea>
+    <div class="composer-row">
+      <span class="composer-hint" data-i18n="hint"></span>
+      <button type="submit" class="send" id="send" data-i18n-aria-label="send">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      </button>
+    </div>
+  </form>
+</template>
+
+<script src="i18n.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
