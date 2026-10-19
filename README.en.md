@@ -1,6 +1,6 @@
 # Lagoa
 
-[Português](README.pt-BR.md) | **English** | [Русский](README.md)
+[Português](README.md) | **English** | [Русский](README.ru.md)
 
 An open-source chat for working with AI models, built for the Brazilian market.
 

@@ -1,98 +1,97 @@
 # Lagoa
 
-[Português](README.pt-BR.md) | [English](README.en.md) | **Русский**
+**Português** | [English](README.en.md) | [Русский](README.ru.md)
 
-Чат с открытым исходным кодом для работы с моделями нейросетей, ориентированный на бразильский рынок.
+Um chat de código aberto para trabalhar com modelos de IA, feito para o Brasil.
 
-## О проекте
+## Sobre o projeto
 
-Lagoa собирает разные нейросети — облачные и локальные — в одном интерфейсе на бразильском португальском. Она помнит ваши разговоры и позволяет выбрать модель под задачу.
+A Lagoa reúne diferentes modelos de IA — na nuvem e locais — em uma única interface em português do Brasil. Ela lembra das suas conversas e deixa você escolher o modelo que melhor combina com cada tarefa.
 
-- **Португальский прежде всего:** интерфейс и тексты рассчитаны на бразильский португальский, а модели подбираются и оцениваются по тому, насколько хорошо они с ним справляются.
-- **Свободно и открыто:** открытый код, бесплатные модели везде, где это возможно, и локальные модели через Ollama, которые работают без интернета и не отправляют данные с вашего компьютера.
-- **Легко развернуть:** запустить свою Lagoa может любой.
+- **Português em primeiro lugar:** a interface e os textos são pensados para o português brasileiro, e os modelos são escolhidos e avaliados pela qualidade com que lidam com o idioma.
+- **Livre e aberta:** código aberto, modelos gratuitos sempre que possível e modelos locais via Ollama, que funcionam sem internet e mantêm seus dados no seu computador.
+- **Fácil de hospedar:** qualquer pessoa pode rodar a própria Lagoa.
 
-Вы задаёте вопрос в веб-чате, бэкенд отправляет его нейросети вместе с контекстом прошлого диалога, сохраняет вопрос и ответ в базу данных и возвращает ответ. У каждого пользователя свой аккаунт и сколько угодно чатов: в каждом Lagoa помнит, о чём вы говорили раньше, а при следующем входе все чаты подгружаются из базы.
+Você faz uma pergunta no chat, o backend envia a pergunta ao modelo junto com o contexto da conversa, salva a pergunta e a resposta no banco de dados e devolve a resposta. Cada pessoa tem a própria conta e quantas conversas quiser: em cada uma, a Lagoa lembra do que vocês já conversaram, e no próximo login todas as conversas são carregadas do banco.
 
-Сейчас Lagoa работает с **Groq** (по умолчанию), **Google Gemini** и локальными моделями через **Ollama**.
+Hoje a Lagoa funciona com **Groq** (padrão), **Google Gemini** e modelos locais via **Ollama**.
 
-## Возможности
+## Funcionalidades
 
-- Чат с нейросетью через веб-интерфейс
-- **Несколько нейросетей:** Groq, Gemini и локальные модели через Ollama, модель выбирается под полем ввода
-- **Работа без интернета:** с Ollama Lagoa отвечает локальной моделью на вашем компьютере
-- **Быстрые ответы:** если ассистент задал вопрос, под ответом появляются кнопки с вариантами ответа
-- **Кнопка «Стоп»:** пока модель отвечает, запрос можно отменить, а вопрос вернётся в поле ввода
-- **Память диалога:** Lagoa помнит контекст прошлых сообщений
-- Сохранение истории запросов в SQLite
-- **Аккаунты:** регистрация и вход по логину и паролю
-- **Несколько чатов:** создание, переименование и удаление; чаты сгруппированы по дате, у каждого своя история и своя память
-- **Живой стартовый экран:** приветствие, подзаголовок и подсказки в поле ввода меняются в зависимости от времени суток
-- Ответы отображаются с форматированием (списки, жирный текст, блоки кода)
-- Адаптивный интерфейс для компьютера и телефона
-- Интерфейс на русском, английском, португальском и испанском с меню выбора языка
+- Chat com modelos de IA em uma interface web
+- **Vários provedores de IA:** Groq, Gemini e modelos locais via Ollama; o modelo é escolhido logo abaixo do campo de mensagem
+- **Funciona sem internet:** com o Ollama, a Lagoa responde com um modelo local no seu computador
+- **Respostas rápidas:** quando o assistente faz uma pergunta, aparecem botões com opções de resposta
+- **Botão de parar:** enquanto a resposta está sendo gerada, dá para cancelar o pedido; a pergunta volta para o campo de mensagem
+- **Memória da conversa:** a Lagoa lembra do contexto das mensagens anteriores
+- **Contas:** cadastro e login com usuário e senha
+- **Várias conversas:** criar, renomear e excluir; as conversas são agrupadas por data, cada uma com seu próprio histórico e memória
+- **Tela inicial viva:** a saudação, o subtítulo e as dicas no campo de mensagem mudam conforme a hora do dia
+- Respostas com formatação (listas, negrito, blocos de código)
+- Interface adaptada para computador e celular
+- Interface em português, inglês, russo e espanhol, com menu de idiomas
 
-## Как Lagoa помнит контекст
+## Como a Lagoa lembra do contexto
 
-Языковые модели не хранят память между запросами, поэтому контекст передаётся вместе с каждым вопросом. Чтобы запрос не разрастался бесконечно, история делится на две части:
+Os modelos de linguagem não guardam memória entre um pedido e outro, então o contexto é enviado junto com cada pergunta. Para que os pedidos não cresçam sem parar, o histórico é dividido em duas partes:
 
-- **последние сообщения** (по умолчанию 10) отправляются модели дословно;
-- **более старые сообщения** сжимаются в краткое резюме: важные факты о пользователе, его задачи и договорённости. Резюме хранится в базе, передаётся модели как системная инструкция и обновляется порциями, когда накапливаются новые старые сообщения.
+- **as mensagens mais recentes** (10 por padrão) vão para o modelo palavra por palavra;
+- **as mensagens mais antigas** são condensadas em um resumo curto: fatos importantes sobre a pessoa, suas tarefas e combinados. O resumo fica no banco de dados, é enviado ao modelo como instrução de sistema e é atualizado aos poucos, conforme novas mensagens antigas se acumulam.
 
-Так ассистент помнит и свежие детали, и общую картину разговора, а размер запроса остаётся небольшим. Число дословных сообщений и размер порции для сжатия настраиваются в `backend/config.py` (`keep_last` и `summarise_every`).
+Assim o assistente lembra tanto dos detalhes recentes quanto do panorama geral, e os pedidos continuam pequenos. A quantidade de mensagens enviadas na íntegra e o tamanho do lote para o resumo ficam em `backend/config.py` (`keep_last` e `summarise_every`).
 
-## Стек
+## Tecnologias
 
 - **Python 3.14**
-- **FastAPI** — REST API
-- **Uvicorn** — ASGI-сервер
-- **SQLAlchemy 2** — ORM, база данных SQLite
-- **groq** — клиент для Groq API
-- **google-genai** — клиент для Gemini API
-- **Ollama** + **httpx** — локальные модели без интернета
-- **pwdlib (Argon2)** — хеширование паролей
-- **PyJWT** — токены доступа
-- **python-dotenv** — загрузка ключей и секретов из `.env`
-- **HTML / CSS / JavaScript** — фронтенд без фреймворков
-- **uv** — управление зависимостями
+- **FastAPI** — API REST
+- **Uvicorn** — servidor ASGI
+- **SQLAlchemy 2** — ORM, banco de dados SQLite
+- **groq** — cliente da API do Groq
+- **google-genai** — cliente da API do Gemini
+- **Ollama** + **httpx** — modelos locais sem internet
+- **pwdlib (Argon2)** — hash de senhas
+- **PyJWT** — tokens de acesso
+- **python-dotenv** — carrega chaves e segredos do `.env`
+- **HTML / CSS / JavaScript** — frontend sem frameworks
+- **uv** — gerenciamento de dependências
 
-## Структура проекта
+## Estrutura do projeto
 
 ```
 ├── backend/
-│   ├── main.py               # FastAPI-приложение, подключает все ручки
-│   ├── auth.py               # регистрация, вход и зависимость get_current_user
-│   ├── chats.py              # ручки чатов и сообщений
-│   ├── security.py           # хеширование паролей и JWT-токены
-│   ├── schemas.py            # Pydantic-схемы запросов и ответов
-│   ├── db.py                 # модели базы данных и функции работы с ней
-│   ├── config.py             # настройки и ключи API из .env
+│   ├── main.py               # aplicação FastAPI, conecta todos os endpoints
+│   ├── auth.py               # cadastro, login e a dependência get_current_user
+│   ├── chats.py              # endpoints de conversas e mensagens
+│   ├── security.py           # hash de senhas e tokens JWT
+│   ├── schemas.py            # esquemas Pydantic de pedidos e respostas
+│   ├── db.py                 # modelos do banco de dados e funções auxiliares
+│   ├── config.py             # configurações e chaves de API do .env
 │   └── ai/
-│       ├── client.py         # абстрактный класс клиента нейросети
-│       ├── gemini_client.py  # реализация клиента для Gemini
-│       ├── groq_client.py    # реализация клиента для Groq
-│       ├── ollama_client.py  # реализация клиента для локальных моделей Ollama
-│       ├── registry.py       # реестр доступных моделей
-│       └── setup.py          # создание реестра по настройкам из config.py
+│       ├── client.py         # classe abstrata do cliente de IA
+│       ├── gemini_client.py  # cliente do Gemini
+│       ├── groq_client.py    # cliente do Groq
+│       ├── ollama_client.py  # cliente dos modelos locais do Ollama
+│       ├── registry.py       # registro dos modelos disponíveis
+│       └── setup.py          # monta o registro a partir do config.py
 ├── frontend/
-│   ├── index.html            # страница чата
-│   ├── login.html            # страница входа и регистрации
-│   ├── styles.css            # стили
-│   ├── i18n.js               # переводы интерфейса (RU / EN / PT / ES)
-│   ├── greetings.js          # фразы стартового экрана для каждого языка и времени суток
-│   ├── api.js                # адрес API, хранение токена и запросы с авторизацией
-│   ├── auth.js               # логика входа и регистрации
-│   └── app.js                # логика чата
-├── .env                      # ключи API и секреты (не в Git)
-├── data.db                   # база данных SQLite (создаётся сама, не в Git)
-└── pyproject.toml            # зависимости
+│   ├── index.html            # página do chat
+│   ├── login.html            # página de login e cadastro
+│   ├── styles.css            # estilos
+│   ├── i18n.js               # traduções da interface (RU / EN / PT / ES)
+│   ├── greetings.js          # frases da tela inicial para cada idioma e hora do dia
+│   ├── api.js                # endereço da API, token e pedidos autenticados
+│   ├── auth.js               # lógica de login e cadastro
+│   └── app.js                # lógica do chat
+├── .env                      # chaves de API e segredos (fora do Git)
+├── data.db                   # banco de dados SQLite (criado automaticamente, fora do Git)
+└── pyproject.toml            # dependências
 ```
 
-## Нейросети
+## Provedores de IA
 
-Клиенты нейросетей наследуются от абстрактного класса `Client`. Чтобы подключить нового провайдера, достаточно написать класс с методом `generate`. Остальной код работает с любым клиентом одинаково.
+Os clientes de IA herdam da classe abstrata `Client`. Para conectar um novo provedor, basta escrever uma classe com o método `generate`; o resto do código funciona com qualquer cliente da mesma forma.
 
-Доступные модели перечислены в `backend/config.py`:
+Os modelos disponíveis ficam em `backend/config.py`:
 
 ```python
 models = [
@@ -105,126 +104,126 @@ title_model = {"provider": "ollama", "model": "qwen3.5:4b"}
 quick_reply_model = {"provider": "ollama", "model": "qwen3.5:4b"}
 ```
 
-При запуске `ModelRegistry` (`backend/ai/registry.py`) создаёт клиент для каждой доступной модели: облачной, если задан ключ API её провайдера, и локальной, если Ollama запущена и модель скачана. Пользователь выбирает модель под полем ввода, выбор запоминается в браузере. Чтобы добавить модель того же провайдера, достаточно новой строки в `models`. Названия моделей смотрите в документации [Groq](https://console.groq.com/docs/models), [Gemini](https://ai.google.dev/gemini-api/docs/models) и в [библиотеке Ollama](https://ollama.com/library).
+Ao iniciar, o `ModelRegistry` (`backend/ai/registry.py`) cria um cliente para cada modelo disponível: um modelo na nuvem, se a chave de API do provedor estiver configurada, e um modelo local, se o Ollama estiver rodando e o modelo tiver sido baixado. A pessoa escolhe o modelo abaixo do campo de mensagem, e a escolha fica salva no navegador. Para adicionar outro modelo do mesmo provedor, basta uma nova linha em `models`. Veja os nomes dos modelos na documentação do [Groq](https://console.groq.com/docs/models), do [Gemini](https://ai.google.dev/gemini-api/docs/models) e na [biblioteca do Ollama](https://ollama.com/library).
 
-`title_model` — отдельная служебная модель, которая придумывает названия новых чатов, чтобы не тратить лимиты основных моделей. Если она недоступна, название придумывает модель чата.
+`title_model` é um modelo auxiliar que dá nome às novas conversas, para não gastar os limites dos modelos principais. Se ele não estiver disponível, o próprio modelo da conversa escolhe o nome.
 
-`quick_reply_model` — локальная модель, которая предлагает быстрые ответы. Облачные модели для этого не используются: если локальной нет, кнопки просто не показываются.
+`quick_reply_model` é um modelo local que sugere as respostas rápidas. Os modelos na nuvem não são usados para isso: sem um modelo local, os botões simplesmente não aparecem.
 
-### Локальные модели (Ollama)
+### Modelos locais (Ollama)
 
-С [Ollama](https://ollama.com/download) Lagoa работает без интернета. Установите Ollama и скачайте модель:
+Com o [Ollama](https://ollama.com/download), a Lagoa funciona sem internet. Instale o Ollama e baixe um modelo:
 
 ```bash
 ollama pull qwen3.5:4b
 ```
 
-После этого перезапустите бэкенд: список скачанных моделей проверяется при старте. Адрес сервера Ollama по умолчанию `http://localhost:11434`, его можно поменять переменной `OLLAMA_URL` в `.env`. Локальная модель работает на вашем компьютере, поэтому без видеокарты длинные ответы могут занимать минуту-две.
+Depois reinicie o backend: os modelos baixados são verificados na inicialização. O servidor do Ollama usa `http://localhost:11434` por padrão; dá para mudar com `OLLAMA_URL` no `.env`. O modelo local roda no seu próprio computador, então, sem placa de vídeo, respostas longas podem levar um ou dois minutos.
 
-## Установка и запуск
+## Como rodar
 
-### 1. Клонировать репозиторий
+### 1. Clone o repositório
 
 ```bash
 git clone https://github.com/maxbaderishere/LagoaAssistant.git
 cd LagoaAssistant
 ```
 
-### 2. Установить зависимости
+### 2. Instale as dependências
 
-Нужен установленный [uv](https://docs.astral.sh/uv/).
+É preciso ter o [uv](https://docs.astral.sh/uv/) instalado.
 
 ```bash
 uv sync
 ```
 
-### 3. Добавить ключи API и секрет для токенов
+### 3. Configure as chaves de API e o segredo dos tokens
 
-Создайте в корне проекта файл `.env`. Из ключей нейросетей достаточно того, который вы используете, а `JWT_SECRET` обязателен: им подписываются токены входа.
+Crie um arquivo `.env` na raiz do projeto. Das chaves de IA, basta a do provedor que você vai usar, mas o `JWT_SECRET` é obrigatório: ele assina os tokens de login.
 
 ```
-GROQ_API_KEY=ваш_ключ_groq
-GEMINI_API_KEY=ваш_ключ_gemini
-JWT_SECRET=длинная_случайная_строка
+GROQ_API_KEY=sua_chave_groq
+GEMINI_API_KEY=sua_chave_gemini
+JWT_SECRET=uma_string_longa_e_aleatoria
 ```
 
-Сгенерировать секрет можно так:
+Para gerar um segredo:
 
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-Ключ Groq можно получить в [консоли Groq](https://console.groq.com/keys), ключ Gemini — в [Google AI Studio](https://aistudio.google.com/apikey).
+A chave do Groq fica no [console do Groq](https://console.groq.com/keys), e a do Gemini, no [Google AI Studio](https://aistudio.google.com/apikey).
 
-### 4. Запустить бэкенд
+### 4. Inicie o backend
 
 ```bash
 uv run uvicorn backend.main:app --reload
 ```
 
-API будет доступно на http://localhost:8000, интерактивная документация — на http://localhost:8000/docs.
+A API fica disponível em http://localhost:8000, e a documentação interativa, em http://localhost:8000/docs.
 
-### 5. Запустить фронтенд
+### 5. Inicie o frontend
 
-Фронтенд должен работать на порту 5500 (этот адрес разрешён в настройках CORS). Раздавать нужно только папку `frontend/`, например так:
+O frontend precisa rodar na porta 5500 (esse endereço está liberado nas configurações de CORS). Sirva apenas a pasta `frontend/`, por exemplo:
 
 ```bash
 python -m http.server 5500 -d frontend
 ```
 
-После этого откройте http://localhost:5500/index.html. Через Live Server в VS Code откройте файл `frontend/index.html`. Без входа чат перенаправит на страницу входа и регистрации.
+Depois abra http://localhost:5500/index.html. Com o Live Server do VS Code, abra o arquivo `frontend/index.html`. Sem login, o chat redireciona para a página de login e cadastro.
 
 ## API
 
-| Метод  | Путь                     | Описание                                        |
-|--------|--------------------------|-------------------------------------------------|
-| POST   | `/auth/register`         | Зарегистрироваться, в ответе токен доступа      |
-| POST   | `/auth/login`            | Войти, в ответе токен доступа                   |
-| GET    | `/auth/me`               | Текущий пользователь                            |
-| GET    | `/chats`                 | Чаты пользователя, сначала недавние             |
-| POST   | `/chats`                 | Создать пустой чат                              |
-| PATCH  | `/chats/{id}`            | Переименовать чат                               |
-| DELETE | `/chats/{id}`            | Удалить чат со всеми сообщениями                |
-| GET    | `/chats/{id}/messages`   | Сообщения чата                                  |
-| GET    | `/chats/{id}/suggestions`| Быстрые ответы на последнее сообщение чата      |
-| POST   | `/chats/{id}/messages`   | Отправить вопрос в чат, в ответе ответ модели   |
-| GET    | `/models`                | Доступные модели и модель по умолчанию          |
+| Método | Caminho                  | Descrição                                        |
+|--------|--------------------------|--------------------------------------------------|
+| POST   | `/auth/register`         | Cadastro; devolve um token de acesso             |
+| POST   | `/auth/login`            | Login; devolve um token de acesso                |
+| GET    | `/auth/me`               | A pessoa logada                                  |
+| GET    | `/chats`                 | Conversas da pessoa, das mais recentes           |
+| POST   | `/chats`                 | Criar uma conversa vazia                         |
+| PATCH  | `/chats/{id}`            | Renomear uma conversa                            |
+| DELETE | `/chats/{id}`            | Excluir uma conversa com todas as mensagens      |
+| GET    | `/chats/{id}/messages`   | Mensagens de uma conversa                        |
+| GET    | `/chats/{id}/suggestions`| Respostas rápidas para a última resposta         |
+| POST   | `/chats/{id}/messages`   | Enviar uma pergunta; devolve a resposta          |
+| GET    | `/models`                | Modelos disponíveis e o modelo padrão            |
 
-Все ручки, кроме регистрации, входа и `/models`, требуют заголовок `Authorization: Bearer <токен>`.
+Todos os endpoints, exceto cadastro, login e `/models`, exigem o cabeçalho `Authorization: Bearer <token>`.
 
-Пример запроса:
+Exemplo de pedido:
 
 ```bash
 curl -X POST http://localhost:8000/chats/1/messages \
-  -H "Authorization: Bearer <токен>" \
+  -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "Привет! Кто ты?"}'
+  -d '{"prompt": "Olá! Quem é você?"}'
 ```
 
-Ответ:
+Resposta:
 
 ```json
-{"answer": "Привет! Я — большая языковая модель..."}
+{"answer": "Olá! Sou um modelo de linguagem..."}
 ```
 
-## Ограничения
+## Limitações
 
-- Токен входа хранится в `localStorage` браузера: это просто, но хуже защищено от XSS, чем httpOnly-cookie.
-- Резюме старых сообщений теряет мелкие детали: модель помнит суть, но не дословные формулировки.
-- После остановки ответа модель всё равно дописывает его в фоне, просто он не сохраняется.
+- O token de login fica no `localStorage` do navegador: é simples, mas menos protegido contra XSS do que um cookie httpOnly.
+- O resumo das mensagens antigas perde pequenos detalhes: o modelo lembra da essência, não das palavras exatas.
+- Ao parar uma resposta, o modelo ainda termina de gerá-la em segundo plano; ela só não é salva.
 
-## Планы
+## Próximos passos
 
-- [x] Передавать нейросети историю диалога, чтобы ассистент помнил контекст
-- [x] Поддержать несколько нейросетей (Groq, Gemini и Ollama)
-- [x] Добавить регистрацию и авторизацию
-- [x] Выбирать модель прямо в интерфейсе
-- [x] Несколько отдельных чатов у одного пользователя
-- [x] Добавить другие языки интерфейса (португальский и испанский)
-- [ ] Понятное сообщение в чате, когда у модели кончился лимит, вместо ошибки подключения
-- [ ] Повтор запроса после ошибки или остановки
-- [ ] Тесты, которые оценивают от 0 до 100, насколько хорошо модель владеет португальским
-- [ ] Больше бесплатных моделей с хорошим португальским
-- [ ] Персонализация: стиль общения пользователя, которому следуют все модели
-- [ ] Команды в чате, например `/context`
-- [ ] Написать тесты
+- [x] Enviar o histórico da conversa ao modelo, para o assistente manter o contexto
+- [x] Suportar vários provedores de IA (Groq, Gemini e Ollama)
+- [x] Cadastro e login
+- [x] Escolher o modelo direto na interface
+- [x] Várias conversas por pessoa
+- [x] Mais idiomas na interface (português e espanhol)
+- [ ] Mensagens claras quando o modelo atinge o limite de uso, em vez de erro de conexão
+- [ ] Repetir o pedido depois de um erro ou de parar a resposta
+- [ ] Testes que avaliam de 0 a 100 o quanto cada modelo domina o português
+- [ ] Mais modelos gratuitos com bom português
+- [ ] Personalização: um estilo de conversa da pessoa que todos os modelos seguem
+- [ ] Comandos no chat, como `/context`
+- [ ] Testes automatizados
