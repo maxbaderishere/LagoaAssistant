@@ -1,0 +1,13 @@
+{
+  // Live Server reloads the page on every file change in the project. Writes to
+  // the SQLite database and backend edits would reload the chat mid-request,
+  // so only frontend changes trigger a reload.
+  "liveServer.settings.ignoreFiles": [
+    ".vscode/**",
+    ".venv/**",
+    "**/__pycache__/**",
+    "**/*.py",
+    "**/data.db*",
+    "**/*.db-journal"
+  ]
+}
