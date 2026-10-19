@@ -163,23 +163,46 @@ a:hover { color: var(--text); }
 .status-dot.fail { background: var(--red); }
 .status-text { font-size: 13px; color: var(--muted); min-width: 0; }
 
-.lang-switch {
-  margin-left: auto;
-  flex: none;
-  display: flex;
-  padding: 2px;
-  border-radius: 999px;
-  border: 1px solid var(--line-strong);
-}
-.lang-switch button {
-  height: 26px; padding: 0 9px;
-  border: none; border-radius: 999px;
-  background: transparent; color: var(--muted);
-  font-size: 12px; font-weight: 600;
+.lang-picker { position: relative; margin-left: auto; flex: none; }
+.lang-btn {
+  display: flex; align-items: center; gap: 6px;
+  height: 32px; padding: 0 12px 0 10px;
+  border: 1px solid var(--line-strong); border-radius: 999px;
+  background: transparent; color: var(--text);
+  font: 600 12px var(--sans);
   cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
 }
-.lang-switch button:hover { color: var(--text); }
-.lang-switch button[aria-pressed="true"] { background: rgba(127, 179, 168, 0.18); color: var(--text); }
+.lang-btn:hover, .lang-btn[aria-expanded="true"] { border-color: rgba(127, 179, 168, 0.5); background: rgba(127, 179, 168, 0.08); }
+.lang-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.lang-icon { flex: none; color: var(--muted); }
+.lang-btn:hover .lang-icon, .lang-btn[aria-expanded="true"] .lang-icon { color: var(--teal); }
+/* In the sidebar footer the menu opens upwards; on the login page it opens downwards. */
+.lang-menu {
+  position: absolute; right: 0; bottom: calc(100% + 8px); z-index: 50;
+  min-width: 190px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  display: flex; flex-direction: column;
+}
+.auth-lang .lang-menu { bottom: auto; top: calc(100% + 8px); }
+.lang-menu button {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px;
+  border: none; border-radius: 8px;
+  background: transparent; color: var(--text);
+  font: 14px var(--sans); text-align: left;
+  cursor: pointer; outline: none;
+}
+.lang-menu button:hover, .lang-menu button:focus-visible { background: rgba(242, 227, 198, 0.06); }
+.lang-menu button[aria-checked="true"] { background: rgba(127, 179, 168, 0.14); }
+.lang-name { flex: 1; }
+.lang-code { font-size: 12px; color: var(--muted); }
+.lang-menu svg { color: var(--teal); visibility: hidden; }
+.lang-menu button[aria-checked="true"] svg { visibility: visible; }
 
 /* ---------- Main ---------- */
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; }

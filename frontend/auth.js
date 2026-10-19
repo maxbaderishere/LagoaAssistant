@@ -116,10 +116,7 @@ switchBtn.addEventListener("click", () => setMode(MODES[mode].other));
 document.querySelectorAll("[data-mode]").forEach(tab => {
   tab.addEventListener("click", () => setMode(tab.dataset.mode));
 });
-document.querySelectorAll("[data-lang]").forEach(btn => {
-  btn.addEventListener("click", () => setLanguage(btn.dataset.lang));
-});
-
+initLanguageMenus();
 applyTranslations();
 setMode("login");
 loginInput.focus();

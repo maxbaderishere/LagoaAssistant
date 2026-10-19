@@ -36,9 +36,11 @@
     <div class="status-row">
       <span class="status-dot" id="statusDot"></span>
       <span class="status-text" id="statusText" data-i18n="connecting"></span>
-      <div class="lang-switch" role="group" data-i18n-aria-label="language">
-        <button type="button" data-lang="ru">RU</button>
-        <button type="button" data-lang="en">EN</button>
+      <div class="lang-picker">
+        <button type="button" class="lang-btn" aria-haspopup="menu" aria-expanded="false" data-i18n-aria-label="language" data-i18n-title="language">
+          <svg class="lang-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span class="lang-current"></span>
+        </button>
+        <div class="lang-menu" role="menu" data-i18n-aria-label="language" hidden></div>
       </div>
     </div>
   </div>

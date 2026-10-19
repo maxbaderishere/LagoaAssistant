@@ -622,12 +622,8 @@ document.querySelectorAll(".suggestion").forEach(btn => {
   btn.addEventListener("click", () => submitPrompt(btn.dataset.prompt));
 });
 
-document.querySelectorAll("[data-lang]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    setLanguage(btn.dataset.lang);
-    renderChatList();
-  });
-});
+// The chat list builds its own labels, so it's redrawn in the new language.
+document.addEventListener("languagechange", renderChatList);
 
 document.getElementById("newChatBtn").addEventListener("click", startNewChat);
 document.getElementById("newChatMobileBtn").addEventListener("click", startNewChat);
@@ -659,6 +655,7 @@ function openChatFromHash() {
 window.addEventListener("hashchange", openChatFromHash);
 
 async function init() {
+  initLanguageMenus();
   applyTranslations();
   setGreeting();
   loadUser();

@@ -20,7 +20,7 @@ Lagoa can work with different AI providers: **Groq** (the default) and **Google 
 - **Multiple chats:** create, rename and delete chats; chats are grouped by date, each with its own history and memory
 - Answers are rendered with formatting (lists, bold text, code blocks)
 - Responsive interface for desktop and mobile
-- Interface in Russian and English with a language switcher
+- Interface in Russian, English, Portuguese and Spanish with a language menu
 
 ## How Lagoa remembers context
 
@@ -68,7 +68,7 @@ This way the assistant remembers both the fresh details and the big picture, whi
 │   ├── index.html            # chat page
 │   ├── login.html            # sign-in and sign-up page
 │   ├── styles.css            # styles
-│   ├── i18n.js               # interface translations (RU / EN)
+│   ├── i18n.js               # interface translations (RU / EN / PT / ES)
 │   ├── api.js                # API address, token storage and authorized requests
 │   ├── auth.js               # sign-in and sign-up logic
 │   └── app.js                # chat logic
@@ -208,5 +208,5 @@ Response:
 - [x] Add sign-up and authentication
 - [x] Pick the model right in the interface
 - [x] Multiple separate chats per user
-- [ ] Add more interface languages
+- [x] Add more interface languages (Portuguese and Spanish)
 - [ ] Write tests
