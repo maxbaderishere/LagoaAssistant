@@ -14,7 +14,7 @@ A Lagoa reúne diferentes modelos de IA — na nuvem e locais — em uma única 
 
 Você faz uma pergunta no chat, o backend envia a pergunta ao modelo junto com o contexto da conversa, salva a pergunta e a resposta no banco de dados e devolve a resposta. Cada pessoa tem a própria conta e quantas conversas quiser: em cada uma, a Lagoa lembra do que vocês já conversaram, e no próximo login todas as conversas são carregadas do banco.
 
-Hoje a Lagoa funciona com **Groq** (padrão), **Google Gemini** e modelos locais via **Ollama**.
+Hoje a Lagoa funciona com **Groq** (padrão), **Google Gemini** e modelos locais via **Ollama**. Também há um cliente para o **Claude**, da Anthropic: ele é pago e, por enquanto, serve de juiz nos testes de português, fora da lista de modelos do chat.
 
 ## Funcionalidades
 
@@ -38,7 +38,7 @@ Os modelos de linguagem não guardam memória entre um pedido e outro, então o 
 - **as mensagens mais recentes** (10 por padrão) vão para o modelo palavra por palavra;
 - **as mensagens mais antigas** são condensadas em um resumo curto: fatos importantes sobre a pessoa, suas tarefas e combinados. O resumo fica no banco de dados, é enviado ao modelo como instrução de sistema e é atualizado aos poucos, conforme novas mensagens antigas se acumulam.
 
-Assim o assistente lembra tanto dos detalhes recentes quanto do panorama geral, e os pedidos continuam pequenos. A quantidade de mensagens enviadas na íntegra e o tamanho do lote para o resumo ficam em `backend/config.py` (`keep_last` e `summarise_every`).
+Assim o assistente lembra tanto dos detalhes recentes quanto do panorama geral, e os pedidos continuam pequenos. A quantidade de mensagens enviadas na íntegra e o tamanho do lote para o resumo ficam em `backend/config.py` (`keep_last` e `summarise_every`). Quem escreve o resumo é o papel `summary` em `helper_models` (veja [Provedores de IA](#provedores-de-ia)); por padrão, o próprio modelo da conversa.
 
 ## Tecnologias
 
@@ -51,7 +51,9 @@ Assim o assistente lembra tanto dos detalhes recentes quanto do panorama geral, 
 - **Ollama** + **httpx** — modelos locais sem internet
 - **pwdlib (Argon2)** — hash de senhas
 - **PyJWT** — tokens de acesso
+- **anthropic** — cliente da API do Claude
 - **python-dotenv** — carrega chaves e segredos do `.env`
+- **PyYAML** — tarefas dos testes de português (grupo de dependências `evals`)
 - **HTML / CSS / JavaScript** — frontend sem frameworks
 - **uv** — gerenciamento de dependências
 
@@ -68,12 +70,20 @@ Assim o assistente lembra tanto dos detalhes recentes quanto do panorama geral, 
 │   ├── config.py             # configurações e chaves de API do .env
 │   ├── helpers/              # tarefas auxiliares: nomes, respostas rápidas, resumos
 │   └── ai/
+│       ├── claude_client.py  # cliente do Claude (Anthropic)
 │       ├── client.py         # classe abstrata do cliente de IA
+│       ├── context.py        # contexto da conversa, montado uma vez para todos os provedores
 │       ├── gemini_client.py  # cliente do Gemini
 │       ├── groq_client.py    # cliente do Groq
 │       ├── ollama_client.py  # cliente dos modelos locais do Ollama
 │       ├── registry.py       # registro dos modelos disponíveis
 │       └── setup.py          # monta o registro a partir do config.py
+├── evals/                    # testes de português dos modelos (em desenvolvimento)
+│   ├── tasks/pt_br.yaml      # tarefas com critérios de avaliação
+│   ├── tester.py             # PortugueseTester: modelo testado + modelo juiz
+│   ├── judge.py              # Judge e ClaudeJudge
+│   ├── checks.py             # verificações automáticas, sem juiz
+│   └── report.py             # notas e ranking dos modelos
 ├── frontend/
 │   ├── index.html            # página do chat
 │   ├── login.html            # página de login e cadastro
@@ -90,7 +100,9 @@ Assim o assistente lembra tanto dos detalhes recentes quanto do panorama geral, 
 
 ## Provedores de IA
 
-Os clientes de IA herdam da classe abstrata `Client`. Para conectar um novo provedor, basta escrever uma classe com o método `generate`; o resto do código funciona com qualquer cliente da mesma forma.
+Os clientes de IA herdam da classe abstrata `Client`. O método `generate(prompt, history, summary)` é comum a todos: ele monta um `Context` neutro (`backend/ai/context.py`) com a instrução de sistema e as mensagens. Para conectar um novo provedor, basta escrever uma classe com o método `_complete(context)`, que só traduz esse contexto para o formato da API do provedor; o resto do código funciona com qualquer cliente da mesma forma.
+
+Os provedores disponíveis são `groq`, `gemini`, `ollama` e `claude`. O Claude é pago e precisa de `ANTHROPIC_API_KEY`; para usá-lo no chat, basta adicioná-lo em `chat_models`.
 
 Os modelos disponíveis ficam em `backend/config.py`:
 
@@ -151,6 +163,7 @@ Crie um arquivo `.env` na raiz do projeto. Das chaves de IA, basta a do provedor
 ```
 GROQ_API_KEY=sua_chave_groq
 GEMINI_API_KEY=sua_chave_gemini
+ANTHROPIC_API_KEY=sua_chave_anthropic
 JWT_SECRET=uma_string_longa_e_aleatoria
 ```
 
@@ -160,7 +173,7 @@ Para gerar um segredo:
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-A chave do Groq fica no [console do Groq](https://console.groq.com/keys), e a do Gemini, no [Google AI Studio](https://aistudio.google.com/apikey).
+A chave do Groq fica no [console do Groq](https://console.groq.com/keys), a do Gemini, no [Google AI Studio](https://aistudio.google.com/apikey), e a do Claude (opcional, paga), no [Console da Anthropic](https://console.anthropic.com/).
 
 ### 4. Inicie o backend
 
@@ -210,7 +223,11 @@ curl -X POST http://localhost:8000/chats/1/messages \
 Resposta:
 
 ```json
-{"answer": "Olá! Sou um modelo de linguagem..."}
+{
+  "answer": "Olá! Sou a Lagoa, uma assistente de IA...",
+  "model": "qwen/qwen3.8-27b",
+  "chat": {"id": 1, "title": "Apresentação da Lagoa", "created_at": "2026-10-19T12:00:00Z", "updated_at": "2026-10-19T12:00:05Z"}
+}
 ```
 
 ## Limitações
@@ -229,7 +246,7 @@ Resposta:
 - [x] Mais idiomas na interface (português e espanhol)
 - [ ] Mensagens claras quando o modelo atinge o limite de uso, em vez de erro de conexão
 - [ ] Repetir o pedido depois de um erro ou de parar a resposta
-- [ ] Testes que avaliam de 0 a 100 o quanto cada modelo domina o português
+- [ ] Testes que avaliam de 0 a 100 o quanto cada modelo domina o português (em andamento: estrutura em `evals/` e 38 tarefas em rascunho)
 - [ ] Mais modelos gratuitos com bom português
 - [ ] Personalização: um estilo de conversa da pessoa que todos os modelos seguem
 - [ ] Comandos no chat, como `/context`

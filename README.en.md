@@ -14,7 +14,7 @@ Lagoa brings different AI models — cloud and local — into one interface in B
 
 You ask a question in the web chat, the backend sends it to an AI model together with the context of your previous conversation, saves the question and the answer to a database and returns the answer. Every user has their own account and as many chats as they like: in each one Lagoa remembers what you talked about before, and the next time you sign in, all chats are loaded from the database.
 
-Lagoa currently works with **Groq** (the default), **Google Gemini** and local models via **Ollama**.
+Lagoa currently works with **Groq** (the default), **Google Gemini** and local models via **Ollama**. There is also a client for Anthropic's **Claude**: it's paid and, for now, serves as the judge in the Portuguese tests rather than as a chat model.
 
 ## Features
 
@@ -39,7 +39,7 @@ Language models keep no memory between requests, so the context is sent along wi
 - **the most recent messages** (10 by default) are sent to the model word for word;
 - **older messages** are compressed into a short summary: key facts about the user, their tasks and agreements. The summary is stored in the database, passed to the model as a system instruction and updated in batches as more old messages pile up.
 
-This way the assistant remembers both the fresh details and the big picture, while requests stay small. The number of verbatim messages and the summary batch size are set in `backend/config.py` (`keep_last` and `summarise_every`).
+This way the assistant remembers both the fresh details and the big picture, while requests stay small. The number of verbatim messages and the summary batch size are set in `backend/config.py` (`keep_last` and `summarise_every`). The summary is written by the `summary` role in `helper_models` (see [AI providers](#ai-providers)); by default, the chat's own model.
 
 ## Tech stack
 
@@ -52,7 +52,9 @@ This way the assistant remembers both the fresh details and the big picture, whi
 - **Ollama** + **httpx** — local models without internet
 - **pwdlib (Argon2)** — password hashing
 - **PyJWT** — access tokens
+- **anthropic** — Claude API client
 - **python-dotenv** — loads keys and secrets from `.env`
+- **PyYAML** — tasks for the Portuguese tests (the `evals` dependency group)
 - **HTML / CSS / JavaScript** — frontend without frameworks
 - **uv** — dependency management
 
@@ -69,12 +71,20 @@ This way the assistant remembers both the fresh details and the big picture, whi
 │   ├── config.py             # settings and API keys from .env
 │   ├── helpers/              # helper tasks: chat titles, quick replies, summaries
 │   └── ai/
+│       ├── claude_client.py  # Claude (Anthropic) client
 │       ├── client.py         # abstract AI client class
+│       ├── context.py        # conversation context, built once for every provider
 │       ├── gemini_client.py  # Gemini client implementation
 │       ├── groq_client.py    # Groq client implementation
 │       ├── ollama_client.py  # client for local Ollama models
 │       ├── registry.py       # registry of available models
 │       └── setup.py          # builds the registry from config.py
+├── evals/                    # Portuguese tests for models (in progress)
+│   ├── tasks/pt_br.yaml      # tasks with grading criteria
+│   ├── tester.py             # PortugueseTester: model under test + judge model
+│   ├── judge.py              # Judge and ClaudeJudge
+│   ├── checks.py             # automatic checks, no judge needed
+│   └── report.py             # scores and model leaderboard
 ├── frontend/
 │   ├── index.html            # chat page
 │   ├── login.html            # sign-in and sign-up page
@@ -91,7 +101,9 @@ This way the assistant remembers both the fresh details and the big picture, whi
 
 ## AI providers
 
-AI clients inherit from the abstract `Client` class. To plug in a new provider, you only need to write a class with a `generate` method; the rest of the code works with any client the same way.
+AI clients inherit from the abstract `Client` class. Its `generate(prompt, history, summary)` method is shared: it builds a provider-neutral `Context` (`backend/ai/context.py`) with the system instruction and the messages. To plug in a new provider, you only need to write a class with a `_complete(context)` method that translates this context into the provider's API format; the rest of the code works with any client the same way.
+
+The available providers are `groq`, `gemini`, `ollama` and `claude`. Claude is paid and needs `ANTHROPIC_API_KEY`; to use it in the chat, add it to `chat_models`.
 
 The available models are listed in `backend/config.py`:
 
@@ -152,6 +164,7 @@ Create a `.env` file in the project root. You only need the key for the AI provi
 ```
 GROQ_API_KEY=your_groq_key
 GEMINI_API_KEY=your_gemini_key
+ANTHROPIC_API_KEY=your_anthropic_key
 JWT_SECRET=a_long_random_string
 ```
 
@@ -161,7 +174,7 @@ You can generate a secret with:
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-Get a Groq key in the [Groq console](https://console.groq.com/keys) and a Gemini key in [Google AI Studio](https://aistudio.google.com/apikey).
+Get a Groq key in the [Groq console](https://console.groq.com/keys) a Gemini key in [Google AI Studio](https://aistudio.google.com/apikey), and a Claude key (optional, paid) in the [Anthropic Console](https://console.anthropic.com/).
 
 ### 4. Run the backend
 
@@ -211,7 +224,11 @@ curl -X POST http://localhost:8000/chats/1/messages \
 Response:
 
 ```json
-{"answer": "Hi! I'm a large language model..."}
+{
+  "answer": "Hi! I'm Lagoa, an AI assistant...",
+  "model": "qwen/qwen3.8-27b",
+  "chat": {"id": 1, "title": "Meeting Lagoa", "created_at": "2026-10-19T12:00:00Z", "updated_at": "2026-10-19T12:00:05Z"}
+}
 ```
 
 ## Limitations
@@ -230,7 +247,7 @@ Response:
 - [x] Add more interface languages (Portuguese and Spanish)
 - [ ] A clear message in the chat when a model runs out of quota, instead of a connection error
 - [ ] Retry a request after an error or after stopping it
-- [ ] Tests that score from 0 to 100 how well each model handles Portuguese
+- [ ] Tests that score from 0 to 100 how well each model handles Portuguese (in progress: the `evals/` skeleton and 38 draft tasks)
 - [ ] More free models with good Portuguese
 - [ ] Personalization: the user's conversation style that every model follows
 - [ ] Chat commands such as `/context`
