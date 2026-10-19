@@ -1,6 +1,6 @@
 """Registration, sign-in and the dependency that resolves the current user."""
 
-from typing import Annotated
+from typing import Annotated, TypeAlias
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -34,7 +34,7 @@ def get_current_user(
     return user
 
 
-CurrentUser = Annotated[User, Depends(get_current_user)]
+CurrentUser: TypeAlias = Annotated[User, Depends(get_current_user)]
 
 
 def _token_response(user: User) -> TokenResponse:
