@@ -13,3 +13,6 @@ __pycache__/
 
 # Claude Code local config
 .claude/
+
+# IDE settings
+.idea/
