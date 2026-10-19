@@ -8,13 +8,14 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from starlette.concurrency import run_in_threadpool
 
 from backend.ai import Client, UnknownModelError
-from backend.ai.setup import quick_reply_client, registry, title_client
+from backend.ai.setup import helper_client, registry
 from backend.auth import CurrentUser
 from backend.config import cfg
 from backend.db import (
     Chat, add_message, create_chat, delete_chat, get_chat_messages, get_summary,
     get_unsummarized_messages, get_user_chat, get_user_chats, rename_chat, save_summary,
 )
+from backend.helpers import ReplySuggester, Summariser, TitleWriter
 from backend.schemas import AnswerResponse, ChatOut, ChatRename, MessageOut, PromptRequest, SuggestionsResponse
 
 router = APIRouter(prefix="/chats", tags=["chats"])
@@ -37,7 +38,7 @@ def get_owned_chat(chat_id: int, user: CurrentUser) -> Chat:
 OwnedChat: TypeAlias = Annotated[Chat, Depends(get_owned_chat)]
 
 
-def update_summary(chat_id: int, client: Client) -> None:
+def update_summary(chat_id: int, client: Client | None) -> None:
     """Fold old messages of a chat into its conversation summary.
 
     The last ``cfg.keep_last`` messages are always left out, because they are
@@ -47,8 +48,11 @@ def update_summary(chat_id: int, client: Client) -> None:
 
     Args:
         chat_id: Id of the chat whose summary to update.
-        client: Client of the model that writes the summary.
+        client: Client of the model that writes the summary (the ``summary``
+            helper role, see ``cfg.helper_models``), or None to skip it.
     """
+    if client is None:
+        return
     summary = get_summary(chat_id=chat_id)
     old_text = summary.text if summary else ""
     last_id = summary.last_summarized_id if summary else 0
@@ -58,14 +62,16 @@ def update_summary(chat_id: int, client: Client) -> None:
     if len(to_summarise) < cfg.summarise_every:
         return
 
-    new_text = client.summarise(old_text, to_summarise)
+    new_text = Summariser(client).summarise(old_text, to_summarise)
     save_summary(chat_id=chat_id, text=new_text, last_summarized_id=to_summarise[-1].id)
 
 
-def name_chat(chat: Chat, client: Client, prompt: str, answer: str) -> Chat:
-    """Rename a chat with a title made up by the model; keep the old title on failure."""
+def name_chat(chat: Chat, client: Client | None, prompt: str, answer: str) -> Chat:
+    """Rename a chat with a title made up by the model; keep the old title on failure or without a model."""
+    if client is None:
+        return chat
     try:
-        title = client.make_title(prompt, answer)
+        title = TitleWriter(client).write(prompt, answer)
     except Exception:
         logger.exception("Couldn't generate a title for chat %s", chat.id)
         return chat
@@ -73,11 +79,15 @@ def name_chat(chat: Chat, client: Client, prompt: str, answer: str) -> Chat:
 
 
 def suggest_replies(answer: str) -> list[str]:
-    """Quick replies from the small helper model; none if it's unavailable or fails."""
-    if quick_reply_client is None:
+    """Quick replies from the ``quick_replies`` helper model; none if it's unavailable or fails."""
+    try:
+        client = helper_client("quick_replies", chat_client=registry.get())
+    except UnknownModelError:
+        return []
+    if client is None:
         return []
     try:
-        return quick_reply_client.suggest_replies(answer)
+        return ReplySuggester(client).suggest(answer)
     except Exception:
         logger.exception("Couldn't suggest quick replies")
         return []
@@ -170,9 +180,9 @@ async def send_message(request: Request, chat: OwnedChat, data: PromptRequest) -
     # otherwise from the chat's model. add_message has already named it
     # after the prompt, which stays as a fallback if the model call fails.
     if chat.title is None:
-        updated_chat = await run_in_threadpool(name_chat, updated_chat, title_client or client, data.prompt, answer)
+        updated_chat = await run_in_threadpool(name_chat, updated_chat, helper_client("title", client), data.prompt, answer)
 
-    await run_in_threadpool(update_summary, chat.id, client)
+    await run_in_threadpool(update_summary, chat.id, helper_client("summary", client))
     return AnswerResponse(answer=answer, model=model_id, chat=ChatOut.model_validate(updated_chat))
 
 

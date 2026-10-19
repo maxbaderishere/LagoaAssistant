@@ -26,18 +26,24 @@ class Config:
             conversation summary is updated.
         database_url: SQLAlchemy URL of the database, ``data.db`` in the project root.
         ollama_url: Address of the local Ollama server, read from ``OLLAMA_URL``.
-        models: Models users can pick from. ``provider`` selects the client
-            class, ``model`` is the provider's model name and ``name`` is the
-            label shown in the interface. A cloud model is only available if
-            its provider's API key is set; an Ollama model only if Ollama is
-            running and the model is pulled.
-        default_model: Model used when the user hasn't picked one.
-        title_model: Small model that names new chats, so naming doesn't use
-            up the limits of the main models. If it isn't available, the
-            chat's own model names it.
-        quick_reply_model: Local model that suggests short replies when the
-            assistant asks the user something. If it isn't available, no
-            suggestions are shown; the cloud models aren't used for this.
+        chat_models: Models users chat with and pick from in the interface.
+            ``provider`` selects the client class, ``model`` is the provider's
+            model name and ``name`` is the label shown to users. A cloud model
+            is only available if its provider's API key is set; an Ollama
+            model only if Ollama is running and the model is pulled.
+        default_model: Chat model used when the user hasn't picked one.
+        helper_models: Models doing work for the app rather than talking to
+            users, by role:
+
+            - ``title``: names new chats;
+            - ``quick_replies``: suggests reply buttons under an answer;
+            - ``summary``: compresses older messages into the chat's memory.
+
+            A role set to None is done by the chat's own model. Otherwise
+            ``fallback`` says what happens if the helper model isn't
+            available: ``"chat"`` hands the work to the chat's model, None
+            skips it (used for quick replies so they never spend the cloud
+            models' limits).
     """
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     groq_api_key = os.getenv("GROQ_API_KEY")
@@ -47,14 +53,17 @@ class Config:
     jwt_secret = os.getenv("JWT_SECRET")
     jwt_algorithm = "HS256"
     access_token_expire_minutes = 60 * 24 * 7
-    models = [
+    chat_models = [
         {"provider": "groq", "model": "qwen/qwen3.8-27b", "name": "Qwen 3.8 27B"},
         {"provider": "gemini", "model": "gemini-3.6-flash", "name": "Gemini 3.6 Flash"},
         {"provider": "ollama", "model": "qwen3.5:4b", "name": "Qwen 3.5 4B"},
     ]
     default_model = "qwen/qwen3.8-27b"
-    title_model = {"provider": "ollama", "model": "qwen3.5:4b"}
-    quick_reply_model = {"provider": "ollama", "model": "qwen3.5:4b"}
+    helper_models = {
+        "title": {"provider": "ollama", "model": "qwen3.5:4b", "fallback": "chat"},
+        "quick_replies": {"provider": "ollama", "model": "qwen3.5:4b", "fallback": None},
+        "summary": None,
+    }
     keep_last = 10
     summarise_every = 10
 cfg = Config()

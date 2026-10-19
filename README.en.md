@@ -67,6 +67,7 @@ This way the assistant remembers both the fresh details and the big picture, whi
 │   ├── schemas.py            # Pydantic request and response schemas
 │   ├── db.py                 # database models and helper functions
 │   ├── config.py             # settings and API keys from .env
+│   ├── helpers/              # helper tasks: chat titles, quick replies, summaries
 │   └── ai/
 │       ├── client.py         # abstract AI client class
 │       ├── gemini_client.py  # Gemini client implementation
@@ -95,21 +96,27 @@ AI clients inherit from the abstract `Client` class. To plug in a new provider, 
 The available models are listed in `backend/config.py`:
 
 ```python
-models = [
+chat_models = [
     {"provider": "groq", "model": "qwen/qwen3.8-27b", "name": "Qwen 3.8 27B"},
     {"provider": "gemini", "model": "gemini-3.6-flash", "name": "Gemini 3.6 Flash"},
     {"provider": "ollama", "model": "qwen3.5:4b", "name": "Qwen 3.5 4B"},
 ]
 default_model = "qwen/qwen3.8-27b"
-title_model = {"provider": "ollama", "model": "qwen3.5:4b"}
-quick_reply_model = {"provider": "ollama", "model": "qwen3.5:4b"}
+helper_models = {
+    "title": {"provider": "ollama", "model": "qwen3.5:4b", "fallback": "chat"},
+    "quick_replies": {"provider": "ollama", "model": "qwen3.5:4b", "fallback": None},
+    "summary": None,
+}
 ```
 
-On startup, `ModelRegistry` (`backend/ai/registry.py`) creates a client for every available model: a cloud model if its provider's API key is set, a local one if Ollama is running and the model is pulled. Users pick a model below the message box, and the choice is remembered in the browser. To add another model from the same provider, add a line to `models`. See the model names in the [Groq](https://console.groq.com/docs/models) and [Gemini](https://ai.google.dev/gemini-api/docs/models) docs and the [Ollama library](https://ollama.com/library).
+On startup, `ModelRegistry` (`backend/ai/registry.py`) creates a client for every available model: a cloud model if its provider's API key is set, a local one if Ollama is running and the model is pulled. Users pick a model below the message box, and the choice is remembered in the browser. To add another model from the same provider, add a line to `chat_models`. See the model names in the [Groq](https://console.groq.com/docs/models) and [Gemini](https://ai.google.dev/gemini-api/docs/models) docs and the [Ollama library](https://ollama.com/library).
 
-`title_model` is a separate helper model that names new chats, so naming doesn't use up the main models' limits. If it isn't available, the chat's own model names the chat.
+Models have two roles:
 
-`quick_reply_model` is a local model that suggests quick replies. Cloud models aren't used for this: without a local model, no buttons are shown.
+- **`chat_models`** — the models users chat with and pick in the interface;
+- **`helper_models`** — models that work for the app rather than talk to users: `title` names new chats, `quick_replies` suggests reply buttons and `summary` compresses older messages into the chat's memory.
+
+A role set to `None` is done by the chat's own model. If a helper model isn't available, `fallback` decides: `"chat"` hands the work to the chat's model and `None` skips the task. Quick replies use `None` so they never spend the cloud models' limits. The tasks themselves live in `backend/helpers/` and work with any model.
 
 ### Local models (Ollama)
 

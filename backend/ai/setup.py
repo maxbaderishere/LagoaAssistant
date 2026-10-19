@@ -1,4 +1,4 @@
-"""Builds the model registry and the helper clients from the settings in config.py."""
+"""Builds the chat model registry and the helper model clients from the settings in config.py."""
 
 import logging
 
@@ -38,9 +38,9 @@ def make_client(entry: dict) -> Client | None:
 
 
 def build_registry() -> ModelRegistry:
-    """Register every model from ``cfg.models`` that can be used right now."""
+    """Register every chat model from ``cfg.chat_models`` that can be used right now."""
     registry = ModelRegistry()
-    for entry in cfg.models:
+    for entry in cfg.chat_models:
         client = make_client(entry)
         if client is None:
             logger.warning("Model %s (%s) is not available", entry["model"], entry["provider"])
@@ -53,6 +53,42 @@ def build_registry() -> ModelRegistry:
     return registry
 
 
+def build_helper_clients() -> dict[str, Client]:
+    """Create a client for every helper role in ``cfg.helper_models`` whose model is available."""
+    clients = {}
+    for role, entry in cfg.helper_models.items():
+        if entry is None:
+            continue
+        client = make_client(entry)
+        if client is None:
+            logger.warning("Helper model %s (%s) for %r is not available", entry["model"], entry["provider"], role)
+            continue
+        clients[role] = client
+    return clients
+
+
 registry = build_registry()
-title_client: Client | None = make_client(cfg.title_model) if cfg.title_model else None
-quick_reply_client: Client | None = make_client(cfg.quick_reply_model) if cfg.quick_reply_model else None
+_helper_clients = build_helper_clients()
+
+
+def helper_client(role: str, chat_client: Client) -> Client | None:
+    """Return the client that does a helper role for a chat, or None if nobody should.
+
+    Args:
+        role: A key of ``cfg.helper_models``, e.g. ``"title"``.
+        chat_client: The client of the chat's own model.
+
+    Returns:
+        The role's helper model if it's available; otherwise the chat's model
+        if the role has no helper model or falls back to the chat, or None if
+        the role is skipped when its helper model is missing.
+
+    Raises:
+        KeyError: If the role isn't in ``cfg.helper_models``, e.g. a typo.
+    """
+    entry = cfg.helper_models[role]
+    if entry is None:
+        return chat_client
+    if role in _helper_clients:
+        return _helper_clients[role]
+    return chat_client if entry.get("fallback") == "chat" else None
