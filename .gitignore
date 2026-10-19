@@ -3,6 +3,7 @@
 
 # Local database
 data.db
+data.db.bak
 
 # Python
 __pycache__/

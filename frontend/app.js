@@ -1,4 +1,5 @@
-const API_URL = "http://localhost:8000";
+// Without a token there is nothing to show: go to the login page first.
+if (!getToken()) goToLogin();
 
 const BOT_ICON = '<svg width="20" height="20" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M5 14c2.6-2.4 5.2-2.4 7.8 0s5.2 2.4 7.8 0 3.9-1.6 5.6-.7" stroke="#E8956B" stroke-width="2.4" stroke-linecap="round"/><path d="M7 20.5c2.4-1.9 4.6-1.9 7 0s4.6 1.9 7 0" stroke="#7FB3A8" stroke-width="2.2" stroke-linecap="round"/></svg>';
 const COPY_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>';
@@ -173,9 +174,21 @@ function addError(text) {
 
 // ---------- API ----------
 
+async function loadUser() {
+  try {
+    const res = await apiFetch("/auth/me");
+    if (!res.ok) return;
+    const user = await res.json();
+    document.getElementById("userName").textContent = user.login;
+    document.getElementById("userAvatar").textContent = user.login.charAt(0);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
 async function loadHistory() {
   try {
-    const res = await fetch(`${API_URL}/requests`);
+    const res = await apiFetch("/requests");
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const items = await res.json();
     setStatus(true, "apiConnected");
@@ -205,9 +218,8 @@ async function sendPrompt(prompt) {
   sendBtn.disabled = true;
 
   try {
-    const res = await fetch(`${API_URL}/requests`, {
+    const res = await apiFetch("/requests", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt }),
     });
     if (!res.ok) throw new Error(t("serverError", { status: res.status }));
@@ -262,10 +274,13 @@ document.querySelectorAll("[data-lang]").forEach(btn => {
   btn.addEventListener("click", () => setLanguage(btn.dataset.lang));
 });
 
+document.getElementById("logoutBtn").addEventListener("click", goToLogin);
+
 document.getElementById("menuBtn").addEventListener("click", () => document.body.classList.add("menu-open"));
 document.getElementById("backdrop").addEventListener("click", () => document.body.classList.remove("menu-open"));
 
 applyTranslations();
 setGreeting();
 input.focus();
+loadUser();
 loadHistory();

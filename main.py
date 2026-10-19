@@ -1,12 +1,14 @@
 """FastAPI application for Lagoa, a personal AI assistant.
 
-Exposes the chat endpoints, keeps the conversation history in the database
-and maintains a running summary of older messages so the model keeps context.
+Exposes the auth and chat endpoints, keeps each user's conversation history in
+the database and maintains a running summary of older messages so the model
+keeps context.
 """
 
-from fastapi import FastAPI, Body, Request
+from fastapi import FastAPI, Body
 from db import Base, add_request_data, engine, get_summary, get_unsummarized_requests, get_user_requests, save_summary
 from ai import Client, GeminiClient, GroqClient
+from auth import CurrentUser, router as auth_router
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from config import cfg
@@ -23,12 +25,13 @@ app = FastAPI(
     lifespan=lifespan,
     title="Lagoa"
     )
+app.include_router(auth_router)
 
 #client: Client = GeminiClient(api_key=cfg.gemini_api_key)
 client: Client = GroqClient(api_key=cfg.groq_api_key)
 
 
-def update_summary(ip: str) -> None:
+def update_summary(user_id: int) -> None:
     """Fold old messages of a user into their conversation summary.
 
     The last ``cfg.keep_last`` messages are always left out, because they are
@@ -37,50 +40,47 @@ def update_summary(ip: str) -> None:
     call doesn't happen on every request.
 
     Args:
-        ip: IP address that identifies the user.
+        user_id: Id of the user whose summary to update.
     """
-    summary = get_summary(ip_adress=ip)
+    summary = get_summary(user_id=user_id)
     old_text = summary.text if summary else ""
     last_id = summary.last_summarized_id if summary else 0
 
-    new_messages = get_unsummarized_requests(ip_adress=ip, after_id=last_id)
+    new_messages = get_unsummarized_requests(user_id=user_id, after_id=last_id)
     to_summarise = new_messages[:-cfg.keep_last]
     if len(to_summarise) < cfg.summarise_every:
         return
 
     new_text = client.summarise(old_text, to_summarise)
-    save_summary(ip_adress=ip, text=new_text, last_summarized_id=to_summarise[-1].id)
+    save_summary(user_id=user_id, text=new_text, last_summarized_id=to_summarise[-1].id)
 
 @app.get("/requests")
-def get_requests(request: Request):
-    """Return the full chat history of the current user, oldest first."""
-    user_ip_adress = request.client.host
-    user_requests = get_user_requests(ip_adress=user_ip_adress)
-    return user_requests
+def get_requests(user: CurrentUser):
+    """Return the full chat history of the signed-in user, oldest first."""
+    return get_user_requests(user_id=user.id)
 
 
 @app.post("/requests")
-def send_prompt(request: Request, prompt: str = Body(embed=True)):
+def send_prompt(user: CurrentUser, prompt: str = Body(embed=True)):
     """Answer a prompt using the recent history and the conversation summary.
 
     The question and the answer are saved to the database, and the summary is
     refreshed afterwards if enough old messages have accumulated.
 
     Args:
-        request: Incoming request, used to get the user's IP address.
+        user: The signed-in user.
         prompt: The user's question.
 
     Returns:
         A dict with the model's reply under the ``answer`` key.
     """
-    ip = request.client.host
-    summary = get_summary(ip_adress=ip)
-    history = get_user_requests(ip_adress=ip, limit=cfg.keep_last)
+    summary = get_summary(user_id=user.id)
+    history = get_user_requests(user_id=user.id, limit=cfg.keep_last)
 
     response = client.generate(prompt, history, summary.text if summary else None)
-    add_request_data(ip_adress=ip, prompt=prompt, response=response)
+    add_request_data(user_id=user.id, prompt=prompt, response=response)
 
-    update_summary(ip)
+    update_summary(user.id)
     return {"answer": response}
 
 
