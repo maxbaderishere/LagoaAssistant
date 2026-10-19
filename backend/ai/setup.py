@@ -2,6 +2,7 @@
 
 import logging
 
+from backend.ai.claude_client import ClaudeClient
 from backend.ai.client import Client
 from backend.ai.gemini_client import GeminiClient
 from backend.ai.groq_client import GroqClient
@@ -27,6 +28,8 @@ def make_client(entry: dict) -> Client | None:
     provider, model = entry["provider"], entry["model"]
     if provider == "groq":
         return GroqClient(api_key=cfg.groq_api_key, model=model) if cfg.groq_api_key else None
+    if provider == "claude":
+        return ClaudeClient(api_key=cfg.anthropic_api_key, model=model) if cfg.anthropic_api_key else None
     if provider == "gemini":
         return GeminiClient(api_key=cfg.gemini_api_key, model=model) if cfg.gemini_api_key else None
     if provider == "ollama":

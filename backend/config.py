@@ -17,6 +17,7 @@ class Config:
     Attributes:
         gemini_api_key: API key for Google Gemini, read from ``GEMINI_API_KEY``.
         groq_api_key: API key for Groq, read from ``GROQ_API_KEY``.
+        anthropic_api_key: API key for Claude, read from ``ANTHROPIC_API_KEY``.
         jwt_secret: Secret used to sign access tokens, read from ``JWT_SECRET``.
         jwt_algorithm: Algorithm used to sign access tokens.
         access_token_expire_minutes: How long an access token stays valid.
@@ -40,6 +41,7 @@ class Config:
     """
     gemini_api_key = os.getenv("GEMINI_API_KEY")
     groq_api_key = os.getenv("GROQ_API_KEY")
+    anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
     database_url = f"sqlite:///{(PROJECT_ROOT / 'data.db').as_posix()}"
     ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
     jwt_secret = os.getenv("JWT_SECRET")
