@@ -2,8 +2,7 @@
 .env
 
 # Local database
-data.db
-data.db.bak
+data.db*
 
 # Python
 __pycache__/

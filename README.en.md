@@ -4,7 +4,7 @@
 
 A personal AI assistant with a web chat. My first pet project.
 
-You ask a question in the web chat, the backend sends it to an AI model together with the context of your previous conversation, saves the question and the answer to a database and returns the answer. Every user has their own account and history: Lagoa remembers what you talked about before, and the next time you sign in, the whole history is loaded from the database.
+You ask a question in the web chat, the backend sends it to an AI model together with the context of your previous conversation, saves the question and the answer to a database and returns the answer. Every user has their own account and as many chats as they like: in each one Lagoa remembers what you talked about before, and the next time you sign in, all chats are loaded from the database.
 
 Lagoa can work with different AI providers: **Groq** (the default) and **Google Gemini** are supported right now.
 
@@ -14,7 +14,8 @@ Lagoa can work with different AI providers: **Groq** (the default) and **Google 
 - **Multiple AI providers:** Groq and Gemini, with the model picked right in the chat
 - **Conversation memory:** Lagoa remembers the context of previous messages
 - Request history stored in SQLite
-- **Accounts:** sign-up and sign-in with a login and password, each user has their own history
+- **Accounts:** sign-up and sign-in with a login and password
+- **Multiple chats:** create, rename and delete chats; chats are grouped by date, each with its own history and memory
 - Answers are rendered with formatting (lists, bold text, code blocks)
 - Responsive interface for desktop and mobile
 - Interface in Russian and English with a language switcher
@@ -47,6 +48,7 @@ This way the assistant remembers both the fresh details and the big picture, whi
 ```
 ├── main.py               # FastAPI app and endpoints
 ├── auth.py               # sign-up, sign-in and the get_current_user dependency
+├── chats.py              # chat and message endpoints
 ├── security.py           # password hashing and JWT tokens
 ├── schemas.py            # Pydantic request and response schemas
 ├── db.py                 # database models and helper functions
@@ -55,7 +57,8 @@ This way the assistant remembers both the fresh details and the big picture, whi
 │   ├── client.py         # abstract AI client class
 │   ├── gemini_client.py  # Gemini client implementation
 │   ├── groq_client.py    # Groq client implementation
-│   └── registry.py       # registry of available models
+│   ├── registry.py       # registry of available models
+│   └── setup.py          # builds the registry from config.py
 ├── frontend/
 │   ├── index.html        # chat page
 │   ├── login.html        # sign-in and sign-up page
@@ -138,20 +141,25 @@ Then open http://localhost:5500/index.html. With Live Server in VS Code, open `f
 
 ## API
 
-| Method | Path             | Description                                          |
-|--------|------------------|------------------------------------------------------|
-| POST   | `/auth/register` | Sign up; returns an access token                     |
-| POST   | `/auth/login`    | Sign in; returns an access token                     |
-| GET    | `/auth/me`       | The signed-in user                                   |
-| GET    | `/requests`      | Full request history of the signed-in user           |
-| POST   | `/requests`      | Send a question to the AI, with conversation context |
+| Method | Path                     | Description                                     |
+|--------|--------------------------|-------------------------------------------------|
+| POST   | `/auth/register`         | Sign up; returns an access token                |
+| POST   | `/auth/login`            | Sign in; returns an access token                |
+| GET    | `/auth/me`               | The signed-in user                              |
+| GET    | `/chats`                 | The user's chats, most recent first             |
+| POST   | `/chats`                 | Create an empty chat                            |
+| PATCH  | `/chats/{id}`            | Rename a chat                                   |
+| DELETE | `/chats/{id}`            | Delete a chat with all its messages             |
+| GET    | `/chats/{id}/messages`   | Messages of a chat                              |
+| POST   | `/chats/{id}/messages`   | Send a question to a chat; returns the answer   |
+| GET    | `/models`                | Available models and the default one            |
 
-All endpoints except sign-up and sign-in require an `Authorization: Bearer <token>` header.
+All endpoints except sign-up, sign-in and `/models` require an `Authorization: Bearer <token>` header.
 
 Example request:
 
 ```bash
-curl -X POST http://localhost:8000/requests \
+curl -X POST http://localhost:8000/chats/1/messages \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Hi! Who are you?"}'
@@ -166,7 +174,6 @@ Response:
 ## Limitations
 
 - The sign-in token is kept in the browser's `localStorage`: simple, but less protected against XSS than an httpOnly cookie.
-- Each user has a single shared conversation; separate chats are not supported yet.
 - The summary of older messages loses small details: the model remembers the gist, not the exact wording.
 
 ## Roadmap
@@ -175,6 +182,6 @@ Response:
 - [x] Support multiple AI providers (Groq and Gemini)
 - [x] Add sign-up and authentication
 - [x] Pick the model right in the interface
-- [ ] Multiple separate chats per user
+- [x] Multiple separate chats per user
 - [ ] Add more interface languages
 - [ ] Write tests

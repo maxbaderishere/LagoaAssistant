@@ -1,8 +1,8 @@
-"""Database models and helpers for storing users and chat history in SQLite."""
+"""Database models and helpers for storing users, chats and messages in SQLite."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, String, create_engine, func, select
+from sqlalchemy import DateTime, ForeignKey, String, create_engine, delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, Mapped, mapped_column
 from functools import wraps
@@ -12,6 +12,9 @@ engine = create_engine(url = "sqlite:///data.db")
 # expire_on_commit=False keeps loaded attributes available after the session
 # closes, so helpers can return model objects to the caller.
 session_factory = sessionmaker(engine, expire_on_commit=False)
+
+# Longest chat title; titles made from the first prompt are cut to this length.
+TITLE_MAX_LENGTH = 100
 
 
 def with_new_session(func):
@@ -25,6 +28,10 @@ def with_new_session(func):
         with session_factory() as session:
             return func(session, *args, **kwargs)
     return wrapper
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class LoginTakenError(Exception):
@@ -45,25 +52,36 @@ class User(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-class ChatRequests(Base):
-    """A single exchange: the user's prompt and the model's response."""
-    __tablename__ = "chat_request"
+class Chat(Base):
+    """A conversation of a user. ``title`` is None until the first message names it."""
+    __tablename__ = "chats"
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    title: Mapped[str | None] = mapped_column(String(TITLE_MAX_LENGTH))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+class ChatRequests(Base):
+    """A single exchange in a chat: the user's prompt and the model's response."""
+    __tablename__ = "chat_request"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    chat_id: Mapped[int] = mapped_column(ForeignKey("chats.id"), index=True)
     promt: Mapped[str]
     response: Mapped[str]
 
 class ChatSummary(Base):
-    """Running summary of a user's older messages.
+    """Running summary of a chat's older messages.
 
     ``last_summarized_id`` is the id of the last message already folded into
     the summary, so only newer messages need to be summarised next time.
     """
     __tablename__ = "chat_summary"
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    chat_id: Mapped[int] = mapped_column(ForeignKey("chats.id"), primary_key=True)
     text: Mapped[str]
     last_summarized_id: Mapped[int]
 
+
+# ---------- users ----------
 
 @with_new_session
 def create_user(session, login: str, password_hash: str) -> User:
@@ -95,45 +113,67 @@ def get_user_by_login(session, login: str) -> User | None:
     return session.execute(select(User).filter_by(login=login)).scalar_one_or_none()
 
 
+# ---------- chats ----------
+
 @with_new_session
-def get_summary(session, user_id: int) -> ChatSummary | None:
-    """Return the user's conversation summary, or None if there is none yet."""
-    return session.get(ChatSummary, user_id)
+def create_chat(session, user_id: int, title: str | None = None) -> Chat:
+    """Create an empty chat for the user."""
+    chat = Chat(user_id=user_id, title=title)
+    session.add(chat)
+    session.commit()
+    return chat
 
 
 @with_new_session
-def get_unsummarized_requests(session, user_id: int, after_id: int) -> list[ChatRequests]:
-    """Return the user's messages with an id greater than ``after_id``, oldest first."""
+def get_user_chats(session, user_id: int) -> list[Chat]:
+    """Return the user's chats, most recently active first."""
     query = (
-        select(ChatRequests)
+        select(Chat)
         .filter_by(user_id=user_id)
-        .where(ChatRequests.id > after_id)
-        .order_by(ChatRequests.id)
+        .order_by(Chat.updated_at.desc(), Chat.id.desc())
     )
     return list(session.execute(query).scalars().all())
 
 
 @with_new_session
-def save_summary(session, user_id: int, text: str, last_summarized_id: int) -> None:
-    """Create or update the user's conversation summary."""
-    session.merge(ChatSummary(
-        user_id=user_id,
-        text=text,
-        last_summarized_id=last_summarized_id,
-    ))
-    session.commit()
+def get_user_chat(session, user_id: int, chat_id: int) -> Chat | None:
+    """Return the chat if it exists and belongs to the user, otherwise None."""
+    return session.execute(
+        select(Chat).filter_by(id=chat_id, user_id=user_id)
+    ).scalar_one_or_none()
+
 
 @with_new_session
-def get_user_requests(session, user_id: int, limit: int | None = None) -> list[ChatRequests]:
-    """Return the user's chat history in chronological order.
+def rename_chat(session, chat_id: int, title: str) -> Chat:
+    """Change a chat's title and return the updated chat."""
+    chat = session.get(Chat, chat_id)
+    chat.title = title
+    session.commit()
+    return chat
+
+
+@with_new_session
+def delete_chat(session, chat_id: int) -> None:
+    """Delete a chat together with its messages and summary."""
+    session.execute(delete(ChatSummary).filter_by(chat_id=chat_id))
+    session.execute(delete(ChatRequests).filter_by(chat_id=chat_id))
+    session.execute(delete(Chat).filter_by(id=chat_id))
+    session.commit()
+
+
+# ---------- messages ----------
+
+@with_new_session
+def get_chat_messages(session, chat_id: int, limit: int | None = None) -> list[ChatRequests]:
+    """Return a chat's messages in chronological order.
 
     Args:
-        user_id: Id of the user whose history to return.
+        chat_id: Id of the chat.
         limit: If given, return only this many most recent messages.
     """
     query = (
         select(ChatRequests)
-        .filter_by(user_id=user_id)
+        .filter_by(chat_id=chat_id)
         .order_by(ChatRequests.id.desc())
     )
     if limit is not None:
@@ -143,14 +183,47 @@ def get_user_requests(session, user_id: int, limit: int | None = None) -> list[C
 
 
 @with_new_session
-def add_request_data(session, user_id: int, prompt: str, response: str) -> None:
-    """Save a prompt and the model's response to the user's history."""
+def add_message(session, chat_id: int, prompt: str, response: str) -> Chat:
+    """Save a prompt and the model's response to a chat.
 
-    new_request = ChatRequests(
-        user_id=user_id,
-        promt=prompt,
-        response=response,
+    Marks the chat as recently active, names it after the prompt if it has no
+    title yet, and returns the updated chat.
+    """
+    session.add(ChatRequests(chat_id=chat_id, promt=prompt, response=response))
+    chat = session.get(Chat, chat_id)
+    chat.updated_at = _now()
+    if chat.title is None:
+        chat.title = " ".join(prompt.split())[:TITLE_MAX_LENGTH]
+    session.commit()
+    return chat
+
+
+# ---------- summaries ----------
+
+@with_new_session
+def get_summary(session, chat_id: int) -> ChatSummary | None:
+    """Return the chat's conversation summary, or None if there is none yet."""
+    return session.get(ChatSummary, chat_id)
+
+
+@with_new_session
+def get_unsummarized_messages(session, chat_id: int, after_id: int) -> list[ChatRequests]:
+    """Return the chat's messages with an id greater than ``after_id``, oldest first."""
+    query = (
+        select(ChatRequests)
+        .filter_by(chat_id=chat_id)
+        .where(ChatRequests.id > after_id)
+        .order_by(ChatRequests.id)
     )
-    session.add(new_request)
+    return list(session.execute(query).scalars().all())
 
+
+@with_new_session
+def save_summary(session, chat_id: int, text: str, last_summarized_id: int) -> None:
+    """Create or update the chat's conversation summary."""
+    session.merge(ChatSummary(
+        chat_id=chat_id,
+        text=text,
+        last_summarized_id=last_summarized_id,
+    ))
     session.commit()

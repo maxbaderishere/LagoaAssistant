@@ -3,6 +3,9 @@ if (!getToken()) goToLogin();
 
 const BOT_ICON = '<svg width="20" height="20" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M5 14c2.6-2.4 5.2-2.4 7.8 0s5.2 2.4 7.8 0 3.9-1.6 5.6-.7" stroke="#E8956B" stroke-width="2.4" stroke-linecap="round"/><path d="M7 20.5c2.4-1.9 4.6-1.9 7 0s4.6 1.9 7 0" stroke="#7FB3A8" stroke-width="2.2" stroke-linecap="round"/></svg>';
 const COPY_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg>';
+const MORE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>';
+const EDIT_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>';
+const TRASH_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
 
 const welcome = document.getElementById("welcome");
 const welcomeSlot = document.getElementById("welcomeSlot");
@@ -11,17 +14,20 @@ const messages = document.getElementById("messages");
 const dock = document.getElementById("dock");
 const dockSlot = document.getElementById("dockSlot");
 const chatTitle = document.getElementById("chatTitle");
-const chatItem = document.getElementById("chatItem");
+const chatList = document.getElementById("chatList");
 const statusDot = document.getElementById("statusDot");
 const statusText = document.getElementById("statusText");
+const deleteDialog = document.getElementById("deleteDialog");
 
 welcomeSlot.appendChild(document.getElementById("composerTpl").content.cloneNode(true));
 const form = document.getElementById("composer");
 const input = document.getElementById("input");
 const sendBtn = document.getElementById("send");
 
-let isChatMode = false;
-let titleSet = false;
+// All chats of the user, most recently active first.
+let chats = [];
+// Chat shown on screen; null means a new chat that isn't created until the first message.
+let currentChatId = null;
 
 // ---------- helpers ----------
 
@@ -40,23 +46,10 @@ function setGreeting() {
   greeting.textContent = t(key);
 }
 
-function setTitle(firstPrompt) {
-  if (titleSet) return;
-  titleSet = true;
-  const oneLine = firstPrompt.replace(/\s+/g, " ").trim();
-  const title = oneLine.length > 48 ? oneLine.slice(0, 48) + "…" : oneLine;
-  chatTitle.textContent = title;
-  delete chatItem.dataset.i18n;
-  chatItem.textContent = title;
-}
-
 function showChat() {
-  if (isChatMode) return;
-  isChatMode = true;
   welcome.hidden = true;
   scroll.hidden = false;
   dock.hidden = false;
-  input.rows = 2;
   dockSlot.appendChild(form);
 }
 
@@ -64,10 +57,15 @@ function showWelcome() {
   welcome.hidden = false;
   scroll.hidden = true;
   dock.hidden = true;
+  welcomeSlot.appendChild(form);
 }
 
 function scrollToBottom() {
   scroll.scrollTop = scroll.scrollHeight;
+}
+
+function closeDrawer() {
+  document.body.classList.remove("menu-open");
 }
 
 function escapeHtml(s) {
@@ -172,8 +170,6 @@ function addError(text) {
   scrollToBottom();
 }
 
-// ---------- API ----------
-
 // ---------- model picker ----------
 
 const MODEL_STORAGE_KEY = "lagoa-model";
@@ -252,10 +248,6 @@ modelMenu.addEventListener("keydown", e => {
   }
 });
 
-document.addEventListener("click", e => {
-  if (!modelPicker.contains(e.target)) closeModelMenu();
-});
-
 // Loads the available models; the last picked one is remembered in the browser.
 async function loadModels() {
   try {
@@ -274,64 +266,286 @@ async function loadModels() {
   }
 }
 
-async function loadUser() {
-  try {
-    const res = await apiFetch("/auth/me");
-    if (!res.ok) return;
-    const user = await res.json();
-    document.getElementById("userName").textContent = user.login;
-    document.getElementById("userAvatar").textContent = user.login.charAt(0);
-  } catch (e) {
-    console.error(e);
+// ---------- chat list ----------
+
+function chatTitleText(chat) {
+  return chat?.title ?? t("newConversation");
+}
+
+// Groups chats by how long ago they were active: today, yesterday, this week, earlier.
+function groupKey(chat) {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const day = 24 * 60 * 60 * 1000;
+  const updated = new Date(chat.updated_at).getTime();
+  if (updated >= startOfToday.getTime()) return "today";
+  if (updated >= startOfToday.getTime() - day) return "yesterday";
+  if (updated >= startOfToday.getTime() - 6 * day) return "thisWeek";
+  return "earlier";
+}
+
+function renderChatList() {
+  chatList.replaceChildren();
+  let lastGroup = null;
+  for (const chat of chats) {
+    const group = groupKey(chat);
+    if (group !== lastGroup) {
+      const label = document.createElement("div");
+      label.className = "chat-list-label";
+      label.dataset.i18n = group;
+      label.textContent = t(group);
+      chatList.appendChild(label);
+      lastGroup = group;
+    }
+    chatList.appendChild(renderChatItem(chat));
+  }
+  updateTitle();
+}
+
+function renderChatItem(chat) {
+  const item = document.createElement("div");
+  item.className = "chat-item";
+  item.dataset.id = chat.id;
+  if (chat.id === currentChatId) item.setAttribute("aria-current", "true");
+  item.innerHTML = `
+    <button type="button" class="chat-link"></button>
+    <button type="button" class="chat-more" aria-haspopup="menu" aria-expanded="false" data-i18n-aria-label="chatActions" aria-label="${t("chatActions")}">${MORE_ICON}</button>
+    <div class="chat-menu" role="menu" hidden>
+      <button type="button" role="menuitem" data-action="rename">${EDIT_ICON}<span data-i18n="rename">${t("rename")}</span></button>
+      <button type="button" role="menuitem" data-action="delete" class="danger">${TRASH_ICON}<span data-i18n="delete">${t("delete")}</span></button>
+    </div>`;
+  const link = item.querySelector(".chat-link");
+  link.textContent = chatTitleText(chat);
+  link.title = chatTitleText(chat);
+  link.addEventListener("click", () => openChat(chat.id));
+
+  const moreBtn = item.querySelector(".chat-more");
+  moreBtn.addEventListener("click", e => {
+    e.stopPropagation();
+    toggleChatMenu(item);
+  });
+  item.querySelector('[data-action="rename"]').addEventListener("click", () => {
+    closeChatMenus();
+    startRename(item, chat);
+  });
+  item.querySelector('[data-action="delete"]').addEventListener("click", () => {
+    closeChatMenus();
+    confirmDelete(chat);
+  });
+  return item;
+}
+
+function closeChatMenus() {
+  chatList.querySelectorAll(".chat-menu:not([hidden])").forEach(menu => {
+    menu.hidden = true;
+    menu.closest(".chat-item").querySelector(".chat-more").setAttribute("aria-expanded", "false");
+  });
+}
+
+function toggleChatMenu(item) {
+  const menu = item.querySelector(".chat-menu");
+  const wasOpen = !menu.hidden;
+  closeChatMenus();
+  if (wasOpen) return;
+  const moreBtn = item.querySelector(".chat-more");
+  menu.hidden = false;
+  moreBtn.setAttribute("aria-expanded", "true");
+  // The list scrolls and would clip an absolutely positioned menu, so the
+  // menu is fixed to the viewport and placed under the button.
+  const rect = moreBtn.getBoundingClientRect();
+  const left = Math.max(8, rect.right - menu.offsetWidth);
+  const top = rect.bottom + 4 + menu.offsetHeight > window.innerHeight
+    ? rect.top - 4 - menu.offsetHeight
+    : rect.bottom + 4;
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+  menu.querySelector("button").focus();
+}
+
+function updateTitle() {
+  const chat = chats.find(c => c.id === currentChatId);
+  if (chat) {
+    delete chatTitle.dataset.i18n;
+    chatTitle.textContent = chatTitleText(chat);
+  } else {
+    chatTitle.dataset.i18n = "newChat";
+    chatTitle.textContent = t("newChat");
   }
 }
 
-async function loadHistory() {
+// Puts a chat at the top of the list with its latest data from the server.
+function upsertChat(chat) {
+  chats = [chat, ...chats.filter(c => c.id !== chat.id)];
+  renderChatList();
+}
+
+async function loadChats() {
+  const res = await apiFetch("/chats");
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  chats = await res.json();
+  renderChatList();
+}
+
+// ---------- rename and delete ----------
+
+function startRename(item, chat) {
+  const link = item.querySelector(".chat-link");
+  const field = document.createElement("input");
+  field.className = "chat-rename";
+  field.value = chat.title ?? "";
+  field.maxLength = 100;
+  field.setAttribute("aria-label", t("rename"));
+  link.replaceWith(field);
+  item.classList.add("renaming");
+  field.focus();
+  field.select();
+
+  let done = false;
+  const finish = async save => {
+    if (done) return;
+    done = true;
+    const title = field.value.trim();
+    if (!save || !title || title === chat.title) {
+      renderChatList();
+      return;
+    }
+    try {
+      const res = await apiFetch(`/chats/${chat.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const updated = await res.json();
+      chats = chats.map(c => c.id === updated.id ? updated : c);
+    } catch (e) {
+      console.error(e);
+      setStatus(false, "requestFailed");
+    }
+    renderChatList();
+  };
+  field.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); finish(true); }
+    if (e.key === "Escape") { e.preventDefault(); finish(false); }
+  });
+  field.addEventListener("blur", () => finish(true));
+}
+
+// Chat waiting for confirmation in the delete dialog.
+let chatToDelete = null;
+
+function confirmDelete(chat) {
+  chatToDelete = chat;
+  document.getElementById("deleteChatName").textContent = chatTitleText(chat);
+  deleteDialog.showModal();
+  document.getElementById("deleteCancel").focus();
+}
+
+async function deleteConfirmedChat() {
+  const chat = chatToDelete;
+  chatToDelete = null;
+  deleteDialog.close();
+  if (!chat) return;
   try {
-    const res = await apiFetch("/requests");
+    const res = await apiFetch(`/chats/${chat.id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    chats = chats.filter(c => c.id !== chat.id);
+    if (chat.id === currentChatId) startNewChat();
+    else renderChatList();
+  } catch (e) {
+    console.error(e);
+    setStatus(false, "requestFailed");
+  }
+}
+
+document.getElementById("deleteConfirm").addEventListener("click", deleteConfirmedChat);
+document.getElementById("deleteCancel").addEventListener("click", () => {
+  chatToDelete = null;
+  deleteDialog.close();
+});
+
+// ---------- navigation ----------
+
+function setHash(chatId) {
+  const hash = chatId ? `#chat-${chatId}` : "";
+  if (location.hash !== hash) history.replaceState(null, "", hash || location.pathname);
+}
+
+function startNewChat() {
+  currentChatId = null;
+  setHash(null);
+  messages.replaceChildren();
+  showWelcome();
+  renderChatList();
+  closeDrawer();
+  input.focus();
+}
+
+async function openChat(chatId) {
+  currentChatId = chatId;
+  setHash(chatId);
+  renderChatList();
+  closeDrawer();
+  messages.replaceChildren();
+  showChat();
+  try {
+    const res = await apiFetch(`/chats/${chatId}/messages`);
+    if (res.status === 404) {
+      chats = chats.filter(c => c.id !== chatId);
+      startNewChat();
+      return;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const items = await res.json();
-    setStatus(true, "apiConnected");
+    if (currentChatId !== chatId) return;
     if (items.length === 0) {
       showWelcome();
       return;
     }
-    showChat();
-    setTitle(items[0].promt);
     for (const item of items) {
       addUserMessage(item.promt);
       addBotMessage(item.response);
     }
     scrollToBottom();
+    input.focus();
   } catch (e) {
     console.error(e);
-    setStatus(false, "apiUnavailable");
-    showWelcome();
+    setStatus(false, "requestFailed");
   }
 }
 
+// ---------- sending ----------
+
 async function sendPrompt(prompt) {
   showChat();
-  setTitle(prompt);
   addUserMessage(prompt);
   const thinking = addThinking();
   sendBtn.disabled = true;
 
   try {
-    const res = await apiFetch("/requests", {
+    // A new chat is created on the server only when its first message is sent.
+    if (currentChatId === null) {
+      const res = await apiFetch("/chats", { method: "POST" });
+      if (!res.ok) throw new Error(t("serverError", { status: res.status }));
+      const chat = await res.json();
+      currentChatId = chat.id;
+      setHash(chat.id);
+      upsertChat(chat);
+    }
+    const chatId = currentChatId;
+    const res = await apiFetch(`/chats/${chatId}/messages`, {
       method: "POST",
       body: JSON.stringify({ prompt, model: selectedModelId }),
     });
     if (!res.ok) throw new Error(t("serverError", { status: res.status }));
     const data = await res.json();
+    upsertChat(data.chat);
     thinking.remove();
-    addBotMessage(data.answer ?? "");
+    // The user may have switched to another chat while waiting for the answer.
+    if (currentChatId === chatId) addBotMessage(data.answer ?? "");
     setStatus(true, "apiConnected");
   } catch (e) {
     thinking.remove();
-    addError(e instanceof TypeError
-      ? t("networkError")
-      : e.message);
+    addError(e instanceof TypeError ? t("networkError") : e.message);
     setStatus(false, "requestFailed");
   } finally {
     sendBtn.disabled = false;
@@ -371,17 +585,66 @@ document.querySelectorAll(".suggestion").forEach(btn => {
 });
 
 document.querySelectorAll("[data-lang]").forEach(btn => {
-  btn.addEventListener("click", () => setLanguage(btn.dataset.lang));
+  btn.addEventListener("click", () => {
+    setLanguage(btn.dataset.lang);
+    renderChatList();
+  });
 });
 
+document.getElementById("newChatBtn").addEventListener("click", startNewChat);
+document.getElementById("newChatMobileBtn").addEventListener("click", startNewChat);
 document.getElementById("logoutBtn").addEventListener("click", goToLogin);
 
 document.getElementById("menuBtn").addEventListener("click", () => document.body.classList.add("menu-open"));
-document.getElementById("backdrop").addEventListener("click", () => document.body.classList.remove("menu-open"));
+document.getElementById("backdrop").addEventListener("click", closeDrawer);
 
-applyTranslations();
-setGreeting();
-input.focus();
-loadUser();
-loadModels();
-loadHistory();
+document.addEventListener("click", e => {
+  if (!modelPicker.contains(e.target)) closeModelMenu();
+  if (!e.target.closest(".chat-item")) closeChatMenus();
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeChatMenus();
+});
+chatList.addEventListener("scroll", closeChatMenus);
+window.addEventListener("resize", closeChatMenus);
+
+// Opens the chat named in the address (#chat-12), or a new chat if there is none.
+function openChatFromHash() {
+  const id = Number(location.hash.match(/^#chat-(\d+)$/)?.[1]);
+  if (chats.some(c => c.id === id)) {
+    if (id !== currentChatId) openChat(id);
+  } else {
+    startNewChat();
+  }
+}
+
+window.addEventListener("hashchange", openChatFromHash);
+
+async function init() {
+  applyTranslations();
+  setGreeting();
+  loadUser();
+  loadModels();
+  try {
+    await loadChats();
+    setStatus(true, "apiConnected");
+  } catch (e) {
+    console.error(e);
+    setStatus(false, "apiUnavailable");
+  }
+  openChatFromHash();
+}
+
+async function loadUser() {
+  try {
+    const res = await apiFetch("/auth/me");
+    if (!res.ok) return;
+    const user = await res.json();
+    document.getElementById("userName").textContent = user.login;
+    document.getElementById("userAvatar").textContent = user.login.charAt(0);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+init();
