@@ -4,8 +4,8 @@ import re
 
 import httpx
 
-from ai.client import Client
-from db import ChatRequests
+from backend.ai.client import Client
+from backend.db import ChatRequests
 
 
 class OllamaClient(Client):

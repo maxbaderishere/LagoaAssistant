@@ -5,9 +5,9 @@ from typing import Annotated, TypeAlias
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from db import LoginTakenError, User, create_user, get_user, get_user_by_login
-from schemas import AuthRequest, TokenResponse, UserOut
-from security import create_access_token, decode_access_token, hash_password, verify_password
+from backend.db import LoginTakenError, User, create_user, get_user, get_user_by_login
+from backend.schemas import AuthRequest, TokenResponse, UserOut
+from backend.security import create_access_token, decode_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

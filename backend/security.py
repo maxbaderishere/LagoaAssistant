@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 from pwdlib import PasswordHash
 
-from config import cfg
+from backend.config import cfg
 
 password_hasher = PasswordHash.recommended()
 

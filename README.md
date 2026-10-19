@@ -148,7 +148,7 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 ### 4. Запустить бэкенд
 
 ```bash
-uv run uvicorn main:app --app-dir backend --reload
+uv run uvicorn backend.main:app --reload
 ```
 
 API будет доступно на http://localhost:8000, интерактивная документация — на http://localhost:8000/docs.

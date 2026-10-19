@@ -148,7 +148,7 @@ Get a Groq key in the [Groq console](https://console.groq.com/keys) and a Gemini
 ### 4. Run the backend
 
 ```bash
-uv run uvicorn main:app --app-dir backend --reload
+uv run uvicorn backend.main:app --reload
 ```
 
 The API will be available at http://localhost:8000, interactive docs at http://localhost:8000/docs.

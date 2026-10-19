@@ -3,7 +3,7 @@
 import re
 from abc import ABC, abstractmethod
 
-from db import ChatRequests
+from backend.db import ChatRequests
 
 # Longest chat title the model is allowed to produce.
 TITLE_MAX_LENGTH = 60

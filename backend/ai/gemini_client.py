@@ -3,8 +3,8 @@
 from google import genai
 from google.genai import types
 
-from ai.client import Client
-from db import ChatRequests
+from backend.ai.client import Client
+from backend.db import ChatRequests
 
 
 class GeminiClient(Client):

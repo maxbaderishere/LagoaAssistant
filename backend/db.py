@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, Mapped, mapped_column
 from functools import wraps
 
-from config import cfg
+from backend.config import cfg
 
 engine = create_engine(url = cfg.database_url)
 

@@ -5,15 +5,15 @@ from typing import Annotated, TypeAlias
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
-from ai import Client, UnknownModelError
-from ai.setup import quick_reply_client, registry, title_client
-from auth import CurrentUser
-from config import cfg
-from db import (
+from backend.ai import Client, UnknownModelError
+from backend.ai.setup import quick_reply_client, registry, title_client
+from backend.auth import CurrentUser
+from backend.config import cfg
+from backend.db import (
     Chat, add_message, create_chat, delete_chat, get_chat_messages, get_summary,
     get_unsummarized_messages, get_user_chat, get_user_chats, rename_chat, save_summary,
 )
-from schemas import AnswerResponse, ChatOut, ChatRename, MessageOut, PromptRequest, SuggestionsResponse
+from backend.schemas import AnswerResponse, ChatOut, ChatRename, MessageOut, PromptRequest, SuggestionsResponse
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 logger = logging.getLogger(__name__)

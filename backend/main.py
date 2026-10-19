@@ -8,11 +8,11 @@ messages so the model keeps context.
 from dataclasses import asdict
 
 from fastapi import FastAPI
-from db import Base, engine
-from ai.setup import registry
-from auth import router as auth_router
-from chats import router as chats_router
-from schemas import ModelsResponse
+from backend.db import Base, engine
+from backend.ai.setup import registry
+from backend.auth import router as auth_router
+from backend.chats import router as chats_router
+from backend.schemas import ModelsResponse
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 

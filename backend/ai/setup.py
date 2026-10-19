@@ -2,12 +2,12 @@
 
 import logging
 
-from ai.client import Client
-from ai.gemini_client import GeminiClient
-from ai.groq_client import GroqClient
-from ai.ollama_client import OllamaClient, list_local_models
-from ai.registry import ModelInfo, ModelRegistry
-from config import cfg
+from backend.ai.client import Client
+from backend.ai.gemini_client import GeminiClient
+from backend.ai.groq_client import GroqClient
+from backend.ai.ollama_client import OllamaClient, list_local_models
+from backend.ai.registry import ModelInfo, ModelRegistry
+from backend.config import cfg
 
 logger = logging.getLogger(__name__)
 

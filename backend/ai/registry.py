@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from ai.client import Client
+from backend.ai.client import Client
 
 
 class UnknownModelError(Exception):
