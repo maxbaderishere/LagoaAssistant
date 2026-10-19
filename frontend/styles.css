@@ -561,3 +561,9 @@ a:hover { color: var(--text); }
 .quick-replies button:hover { background: rgba(127, 179, 168, 0.12); border-color: var(--teal); color: var(--text); }
 .quick-replies button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 @keyframes fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* ---------- Generated greeting ---------- */
+#greeting, .welcome-sub { transition: opacity 0.3s ease; }
+#greeting.is-fading, .welcome-sub.is-fading { opacity: 0; }
+.composer textarea::placeholder { transition: opacity 0.3s ease; }
+.composer textarea.hint-fading::placeholder { opacity: 0; }
