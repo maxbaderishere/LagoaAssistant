@@ -150,8 +150,43 @@ function fillBotMessage(el, text) {
 }
 
 function addBotMessage(text) {
-  fillBotMessage(botShell(), text);
+  const el = botShell();
+  fillBotMessage(el, text);
   scrollToBottom();
+  return el;
+}
+
+// ---------- quick replies ----------
+
+function clearQuickReplies() {
+  messages.querySelectorAll(".quick-replies").forEach(el => el.remove());
+}
+
+// Asks for short replies to the chat's last answer and shows them as buttons
+// under it. The answer is already on screen; the buttons appear when ready.
+async function loadQuickReplies(chatId, botEl) {
+  try {
+    const res = await apiFetch(`/chats/${chatId}/suggestions`);
+    if (!res.ok) return;
+    const { suggestions } = await res.json();
+    // Skip if the user has switched chats or already sent another message.
+    if (!suggestions.length || currentChatId !== chatId || messages.lastElementChild !== botEl) return;
+    clearQuickReplies();
+    const box = document.createElement("div");
+    box.className = "quick-replies";
+    for (const text of suggestions) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = text;
+      btn.addEventListener("click", () => submitPrompt(text));
+      box.appendChild(btn);
+    }
+    botEl.querySelector(".bot-body").appendChild(box);
+    const nearBottom = scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight < 120;
+    if (nearBottom) scrollToBottom();
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 function addThinking() {
@@ -205,7 +240,7 @@ function renderModelMenu() {
     li.dataset.id = m.id;
     li.innerHTML = `<span class="model-option-text"><span class="model-option-name"></span><span class="model-option-provider"></span></span>${CHECK_ICON}`;
     li.querySelector(".model-option-name").textContent = m.name;
-    li.querySelector(".model-option-provider").textContent = PROVIDER_NAMES[m.provider] ?? m.provider;
+    li.querySelector(".model-option-provider").textContent = m.provider === "ollama" ? t("ollamaProvider") : PROVIDER_NAMES[m.provider] ?? m.provider;
     li.addEventListener("click", () => {
       selectModel(m.id);
       closeModelMenu(true);
@@ -501,11 +536,13 @@ async function openChat(chatId) {
       showWelcome();
       return;
     }
+    let lastBot = null;
     for (const item of items) {
       addUserMessage(item.promt);
-      addBotMessage(item.response);
+      lastBot = addBotMessage(item.response);
     }
     scrollToBottom();
+    loadQuickReplies(chatId, lastBot);
     input.focus();
   } catch (e) {
     console.error(e);
@@ -516,6 +553,7 @@ async function openChat(chatId) {
 // ---------- sending ----------
 
 async function sendPrompt(prompt) {
+  clearQuickReplies();
   showChat();
   addUserMessage(prompt);
   const thinking = addThinking();
@@ -541,7 +579,7 @@ async function sendPrompt(prompt) {
     upsertChat(data.chat);
     thinking.remove();
     // The user may have switched to another chat while waiting for the answer.
-    if (currentChatId === chatId) addBotMessage(data.answer ?? "");
+    if (currentChatId === chatId) loadQuickReplies(chatId, addBotMessage(data.answer ?? ""));
     setStatus(true, "apiConnected");
   } catch (e) {
     thinking.remove();

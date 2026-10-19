@@ -518,3 +518,22 @@ a:hover { color: var(--text); }
 .btn:hover { background: rgba(242, 227, 198, 0.06); }
 .btn-danger { border-color: transparent; background: var(--red); color: #fff; }
 .btn-danger:hover { background: #d25f69; }
+
+/* ---------- Quick replies ---------- */
+.quick-replies {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 12px;
+  animation: fade-in 0.2s ease-out;
+}
+.quick-replies button {
+  min-height: 38px; padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(127, 179, 168, 0.45);
+  background: transparent; color: var(--teal);
+  font: 14px var(--sans);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.quick-replies button:hover { background: rgba(127, 179, 168, 0.12); border-color: var(--teal); color: var(--text); }
+.quick-replies button:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+@keyframes fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }

@@ -6,14 +6,14 @@ from typing import Annotated, TypeAlias
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from ai import Client, UnknownModelError
-from ai.setup import registry
+from ai.setup import quick_reply_client, registry, title_client
 from auth import CurrentUser
 from config import cfg
 from db import (
     Chat, add_message, create_chat, delete_chat, get_chat_messages, get_summary,
     get_unsummarized_messages, get_user_chat, get_user_chats, rename_chat, save_summary,
 )
-from schemas import AnswerResponse, ChatOut, ChatRename, MessageOut, PromptRequest
+from schemas import AnswerResponse, ChatOut, ChatRename, MessageOut, PromptRequest, SuggestionsResponse
 
 router = APIRouter(prefix="/chats", tags=["chats"])
 logger = logging.getLogger(__name__)
@@ -70,6 +70,17 @@ def name_chat(chat: Chat, client: Client, prompt: str, answer: str) -> Chat:
     return rename_chat(chat_id=chat.id, title=title) if title else chat
 
 
+def suggest_replies(answer: str) -> list[str]:
+    """Quick replies from the small helper model; none if it's unavailable or fails."""
+    if quick_reply_client is None:
+        return []
+    try:
+        return quick_reply_client.suggest_replies(answer)
+    except Exception:
+        logger.exception("Couldn't suggest quick replies")
+        return []
+
+
 @router.get("")
 def list_chats(user: CurrentUser) -> list[ChatOut]:
     """Return the user's chats, most recently active first."""
@@ -123,10 +134,22 @@ def send_message(chat: OwnedChat, data: PromptRequest) -> AnswerResponse:
     answer = client.generate(data.prompt, history, summary.text if summary else None)
     updated_chat = add_message(chat_id=chat.id, prompt=data.prompt, response=answer)
 
-    # A new chat gets a title from the model. add_message has already named it
+    # A new chat gets a title from the small title model if there is one,
+    # otherwise from the chat's model. add_message has already named it
     # after the prompt, which stays as a fallback if the model call fails.
     if chat.title is None:
-        updated_chat = name_chat(updated_chat, client, data.prompt, answer)
+        updated_chat = name_chat(updated_chat, title_client or client, data.prompt, answer)
 
     update_summary(chat.id, client)
     return AnswerResponse(answer=answer, model=model_id, chat=ChatOut.model_validate(updated_chat))
+
+
+@router.get("/{chat_id}/suggestions")
+def suggestions(chat: OwnedChat) -> SuggestionsResponse:
+    """Suggest quick replies to the chat's last answer.
+
+    Separate from sending a message so the answer is shown right away and
+    the buttons appear a moment later.
+    """
+    last = get_chat_messages(chat_id=chat.id, limit=1)
+    return SuggestionsResponse(suggestions=suggest_replies(last[0].response) if last else [])

@@ -73,6 +73,11 @@ class AnswerResponse(BaseModel):
     chat: ChatOut
 
 
+class SuggestionsResponse(BaseModel):
+    """Short replies the user can send with one click; empty if there are none."""
+    suggestions: list[str]
+
+
 class UserOut(BaseModel):
     """Public information about a user. Never includes the password hash."""
     model_config = ConfigDict(from_attributes=True)

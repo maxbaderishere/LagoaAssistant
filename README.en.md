@@ -11,7 +11,9 @@ Lagoa can work with different AI providers: **Groq** (the default) and **Google 
 ## Features
 
 - Chat with an AI model through a web interface
-- **Multiple AI providers:** Groq and Gemini, with the model picked right in the chat
+- **Multiple AI providers:** Groq, Gemini and local models via Ollama, with the model picked right in the chat
+- **Works offline:** with Ollama, Lagoa answers with a local model on your computer
+- **Quick replies:** when the assistant asks a question, reply buttons appear under the answer
 - **Conversation memory:** Lagoa remembers the context of previous messages
 - Request history stored in SQLite
 - **Accounts:** sign-up and sign-in with a login and password
@@ -37,6 +39,7 @@ This way the assistant remembers both the fresh details and the big picture, whi
 - **SQLAlchemy 2** — ORM, SQLite database
 - **groq** — Groq API client
 - **google-genai** — Gemini API client
+- **Ollama** + **httpx** — local models without internet
 - **pwdlib (Argon2)** — password hashing
 - **PyJWT** — access tokens
 - **python-dotenv** — loads keys and secrets from `.env`
@@ -56,6 +59,7 @@ This way the assistant remembers both the fresh details and the big picture, whi
 ├── ai/
 │   ├── client.py         # abstract AI client class
 │   ├── gemini_client.py  # Gemini client implementation
+│   ├── ollama_client.py  # client for local Ollama models
 │   ├── groq_client.py    # Groq client implementation
 │   ├── registry.py       # registry of available models
 │   └── setup.py          # builds the registry from config.py
@@ -80,11 +84,28 @@ The available models are listed in `config.py`:
 models = [
     {"provider": "groq", "model": "qwen/qwen3.8-27b", "name": "Qwen 3.8 27B"},
     {"provider": "gemini", "model": "gemini-3.6-flash", "name": "Gemini 3.6 Flash"},
+    {"provider": "ollama", "model": "qwen3.5:4b", "name": "Qwen 3.5 4B"},
 ]
 default_model = "qwen/qwen3.8-27b"
+title_model = {"provider": "ollama", "model": "qwen3.5:4b"}
+quick_reply_model = {"provider": "ollama", "model": "qwen3.5:4b"}
 ```
 
-On startup, `ModelRegistry` (`ai/registry.py`) creates a client for every model whose provider has an API key set. Users pick a model in the chat header, and the choice is remembered in the browser. To add another model from the same provider, add a line to `models`. See the model names in the [Groq](https://console.groq.com/docs/models) and [Gemini](https://ai.google.dev/gemini-api/docs/models) docs.
+On startup, `ModelRegistry` (`ai/registry.py`) creates a client for every available model: a cloud model if its provider's API key is set, a local one if Ollama is running and the model is pulled. Users pick a model in the chat header, and the choice is remembered in the browser. To add another model from the same provider, add a line to `models`. See the model names in the [Groq](https://console.groq.com/docs/models) and [Gemini](https://ai.google.dev/gemini-api/docs/models) docs and the [Ollama library](https://ollama.com/library).
+
+`title_model` is a separate helper model that names new chats, so naming doesn't use up the main models' limits. If it isn't available, the chat's own model names the chat.
+
+`quick_reply_model` is a local model that suggests quick replies. Cloud models aren't used for this: without a local model, no buttons are shown.
+
+### Local models (Ollama)
+
+With [Ollama](https://ollama.com/download), Lagoa works without internet. Install Ollama and pull a model:
+
+```bash
+ollama pull qwen3.5:4b
+```
+
+Then restart the backend: pulled models are checked on startup. The Ollama server defaults to `http://localhost:11434`; change it with `OLLAMA_URL` in `.env`. A local model runs on your own computer, so without a GPU long answers can take a minute or two.
 
 ## Getting started
 
@@ -151,6 +172,7 @@ Then open http://localhost:5500/index.html. With Live Server in VS Code, open `f
 | PATCH  | `/chats/{id}`            | Rename a chat                                   |
 | DELETE | `/chats/{id}`            | Delete a chat with all its messages             |
 | GET    | `/chats/{id}/messages`   | Messages of a chat                              |
+| GET    | `/chats/{id}/suggestions`| Quick replies to the chat's last answer         |
 | POST   | `/chats/{id}/messages`   | Send a question to a chat; returns the answer   |
 | GET    | `/models`                | Available models and the default one            |
 
