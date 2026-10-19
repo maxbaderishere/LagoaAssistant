@@ -89,6 +89,13 @@ class SuggestionsResponse(BaseModel):
     suggestions: list[str]
 
 
+class GreetingResponse(BaseModel):
+    """Welcome screen texts written by the helper model."""
+    title: str
+    subtitle: str
+    hints: list[str]
+
+
 class UserOut(BaseModel):
     """Public information about a user. Never includes the password hash."""
     model_config = ConfigDict(from_attributes=True)

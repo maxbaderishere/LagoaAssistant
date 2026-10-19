@@ -38,13 +38,134 @@ function setStatus(ok, key) {
   statusText.textContent = t(key);
 }
 
-function setGreeting() {
-  const h = new Date().getHours();
-  const key = h < 5 ? "greetingNight" : h < 12 ? "greetingMorning" : h < 18 ? "greetingDay" : "greetingEvening";
-  const greeting = document.getElementById("greeting");
-  greeting.dataset.i18n = key;
-  greeting.textContent = t(key);
+// ---------- welcome screen ----------
+//
+// The built-in greeting ("Добрый вечер") shows right away. The helper model
+// then writes a unique greeting, subtitle and input hints, which fade in.
+// They're cached in the browser per day, part of the day and language, so
+// they don't change every time a new chat is opened.
+
+const GREETING_CACHE_PREFIX = "lagoa-greeting:";
+const HINT_INTERVAL_MS = 5000;
+const FADE_MS = 300;
+
+const greetingEl = document.getElementById("greeting");
+const welcomeSubEl = document.querySelector(".welcome-sub");
+
+let greetingKey = null;
+let hints = [];
+let hintIndex = 0;
+
+function dayPeriod(hour = new Date().getHours()) {
+  if (hour < 5 || hour >= 23) return "night";
+  if (hour < 12) return "morning";
+  if (hour < 18) return "day";
+  return "evening";
 }
+
+function currentGreetingKey() {
+  const now = new Date();
+  const date = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  return `${GREETING_CACHE_PREFIX}${date}:${dayPeriod()}:${currentLang}`;
+}
+
+// Built-in texts from the translations; also the fallback when the helper model is unavailable.
+function setGreeting() {
+  const key = { night: "greetingNight", morning: "greetingMorning", day: "greetingDay", evening: "greetingEvening" }[dayPeriod()];
+  greetingEl.dataset.i18n = key;
+  greetingEl.textContent = t(key);
+  welcomeSubEl.dataset.i18n = "welcomeSub";
+  welcomeSubEl.textContent = t("welcomeSub");
+  input.dataset.i18nPlaceholder = "placeholder";
+  input.placeholder = t("placeholder");
+  hints = [];
+}
+
+function fadeText(el, text) {
+  if (el.textContent === text) return;
+  el.classList.add("is-fading");
+  setTimeout(() => {
+    el.textContent = text;
+    el.classList.remove("is-fading");
+  }, FADE_MS);
+}
+
+function applyGeneratedGreeting(data) {
+  // Generated texts replace the translated ones, so a language switch
+  // mustn't overwrite them; it loads a new greeting instead.
+  delete greetingEl.dataset.i18n;
+  fadeText(greetingEl, data.title);
+  if (data.subtitle) {
+    delete welcomeSubEl.dataset.i18n;
+    fadeText(welcomeSubEl, data.subtitle);
+  }
+  if (data.hints.length) {
+    delete input.dataset.i18nPlaceholder;
+    hints = data.hints;
+    hintIndex = -1;
+    showNextHint();
+  }
+}
+
+function readCachedGreeting(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheGreeting(key, data) {
+  try {
+    // Greetings from earlier parts of the day are no longer needed; other
+    // languages for the current one are kept for switching back.
+    const period = key.slice(0, key.lastIndexOf(":") + 1);
+    Object.keys(localStorage)
+      .filter(k => k.startsWith(GREETING_CACHE_PREFIX) && !k.startsWith(period))
+      .forEach(k => localStorage.removeItem(k));
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch {}
+}
+
+// Shows the greeting for the current part of the day, generating it if it isn't cached yet.
+async function loadGeneratedGreeting() {
+  const key = currentGreetingKey();
+  if (key === greetingKey) return;
+  greetingKey = key;
+  setGreeting();
+
+  const cached = readCachedGreeting(key);
+  if (cached) {
+    applyGeneratedGreeting(cached);
+    return;
+  }
+  try {
+    const res = await apiFetch(`/greeting?lang=${currentLang}&period=${dayPeriod()}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    cacheGreeting(key, data);
+    if (greetingKey === key) applyGeneratedGreeting(data);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// Swaps the input placeholder to the next hint with a fade out and in.
+function showNextHint() {
+  if (!hints.length) return;
+  hintIndex = (hintIndex + 1) % hints.length;
+  input.classList.add("hint-fading");
+  setTimeout(() => {
+    input.placeholder = hints[hintIndex];
+    input.classList.remove("hint-fading");
+  }, FADE_MS);
+}
+
+setInterval(() => {
+  // Only while the hint is visible: an empty input, not mid-typing.
+  if (!input.value) showNextHint();
+}, HINT_INTERVAL_MS);
 
 function showChat() {
   welcome.hidden = true;
@@ -510,6 +631,8 @@ function startNewChat() {
   setHash(null);
   messages.replaceChildren();
   showWelcome();
+  // The part of the day may have changed since the page was opened.
+  loadGeneratedGreeting();
   renderChatList();
   closeDrawer();
   input.focus();
@@ -623,7 +746,11 @@ document.querySelectorAll(".suggestion").forEach(btn => {
 });
 
 // The chat list builds its own labels, so it's redrawn in the new language.
-document.addEventListener("languagechange", renderChatList);
+document.addEventListener("languagechange", () => {
+  renderChatList();
+  greetingKey = null;
+  loadGeneratedGreeting();
+});
 
 document.getElementById("newChatBtn").addEventListener("click", startNewChat);
 document.getElementById("newChatMobileBtn").addEventListener("click", startNewChat);
@@ -659,6 +786,7 @@ async function init() {
   applyTranslations();
   setGreeting();
   loadUser();
+  loadGeneratedGreeting();
   loadModels();
   try {
     await loadChats();
