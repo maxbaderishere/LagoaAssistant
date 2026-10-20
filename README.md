@@ -46,7 +46,7 @@ Assim o assistente lembra tanto dos detalhes recentes quanto do panorama geral, 
 - **FastAPI** — API REST
 - **Uvicorn** — servidor ASGI
 - **SQLAlchemy 2** — ORM
-- **PostgreSQL** + **psycopg** — banco de dados em produção; SQLite para experimentar
+- **PostgreSQL** + **psycopg** — banco de dados
 - **Alembic** — migrações do banco de dados
 - **groq** — cliente da API do Groq
 - **google-genai** — cliente da API do Gemini
@@ -96,11 +96,8 @@ Assim o assistente lembra tanto dos detalhes recentes quanto do panorama geral, 
 │   ├── auth.js               # lógica de login e cadastro
 │   └── app.js                # lógica do chat
 ├── migrations/               # migrações do Alembic do banco de dados
-├── scripts/
-│   └── sqlite_to_postgres.py # copia os dados do SQLite para o Postgres
 ├── .env                      # chaves de API e segredos (fora do Git)
 ├── alembic.ini               # configurações do Alembic
-├── data.db                   # banco SQLite, se DATABASE_URL não estiver definido (fora do Git)
 └── pyproject.toml            # dependências
 ```
 
@@ -183,7 +180,7 @@ A chave do Groq fica no [console do Groq](https://console.groq.com/keys), a do G
 
 ### 4. Configure o banco de dados
 
-Em produção, a Lagoa usa o PostgreSQL. Instale o [PostgreSQL](https://www.postgresql.org/download/) e crie um usuário e um banco (troque a senha):
+A Lagoa usa o PostgreSQL. Instale o [PostgreSQL](https://www.postgresql.org/download/) e crie um usuário e um banco (troque a senha):
 
 ```bash
 psql -U postgres -c "CREATE ROLE lagoa LOGIN PASSWORD 'troque_esta_senha'" -c "CREATE DATABASE lagoa OWNER lagoa"
@@ -195,15 +192,7 @@ Depois adicione o endereço do banco ao `.env`:
 DATABASE_URL=postgresql+psycopg://lagoa:troque_esta_senha@localhost:5432/lagoa
 ```
 
-As tabelas são criadas e atualizadas sozinhas: ao iniciar, o backend aplica as migrações do Alembic que faltam (pasta `migrations/`). Sem `DATABASE_URL`, a Lagoa usa um arquivo SQLite, o `data.db`: serve para experimentar, mas não para produção.
-
-**Já tem dados no SQLite?** Com `DATABASE_URL` apontando para um banco Postgres vazio, rode:
-
-```bash
-uv run python -m scripts.sqlite_to_postgres
-```
-
-O script cria as tabelas, copia usuários, conversas, mensagens e resumos mantendo os ids e confere a quantidade de linhas. Tudo acontece em uma transação: se algo der errado, o Postgres fica intacto. O `data.db` não é alterado; guarde-o como backup.
+As tabelas são criadas e atualizadas sozinhas: ao iniciar, o backend aplica as migrações do Alembic que faltam (pasta `migrations/`).
 
 **Mudou os modelos em `backend/db.py`?** Gere uma migração, confira o arquivo gerado em `migrations/versions/` e aplique:
 

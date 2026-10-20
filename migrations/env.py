@@ -1,8 +1,7 @@
 """Alembic environment: runs migrations against the app's own database.
 
-The URL comes from backend/config.py, so migrations always hit the same
-database as the app, whether that is Postgres from DATABASE_URL or the
-SQLite fallback.
+The URL comes from backend/config.py (DATABASE_URL), so migrations always
+hit the same database as the app.
 """
 
 from logging.config import fileConfig
@@ -25,7 +24,6 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        render_as_batch=engine.dialect.name == "sqlite",
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -37,9 +35,6 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
-            # SQLite can't ALTER most things in place; batch mode rebuilds the
-            # table instead, so the same migrations work there too.
-            render_as_batch=connection.dialect.name == "sqlite",
         )
         with context.begin_transaction():
             context.run_migrations()

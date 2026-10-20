@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from alembic import command
 from alembic.config import Config as AlembicConfig
-from sqlalchemy import DateTime, ForeignKey, MetaData, String, create_engine, delete, func, inspect, select
+from sqlalchemy import DateTime, ForeignKey, MetaData, String, create_engine, delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, Mapped, mapped_column
 from functools import wraps
@@ -19,9 +19,6 @@ engine = create_engine(url = cfg.database_url)
 # expire_on_commit=False keeps loaded attributes available after the session
 # closes, so helpers can return model objects to the caller.
 session_factory = sessionmaker(engine, expire_on_commit=False)
-
-# The first migration, the schema create_all() used to build.
-INITIAL_REVISION = "76871d871bd8"
 
 # Longest chat title; titles made from the first prompt are cut to this length.
 TITLE_MAX_LENGTH = 100
@@ -102,18 +99,10 @@ class ChatSummary(Base):
 
 
 def migrate() -> None:
-    """Bring the database schema up to date by applying Alembic migrations.
-
-    A database made before migrations existed (by create_all()) already has
-    the tables of the first migration but no record of it, so it is marked as
-    being at that migration first instead of creating the tables again.
-    """
+    """Bring the database schema up to date by applying Alembic migrations."""
     alembic_cfg = AlembicConfig(PROJECT_ROOT / "alembic.ini")
     # Keep the server's logging setup; alembic.ini would replace it.
     alembic_cfg.attributes["configure_logger"] = False
-    tables = inspect(engine).get_table_names()
-    if "users" in tables and "alembic_version" not in tables:
-        command.stamp(alembic_cfg, INITIAL_REVISION)
     command.upgrade(alembic_cfg, "head")
 
 

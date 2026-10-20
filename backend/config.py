@@ -4,15 +4,12 @@ from dotenv import load_dotenv
 from pathlib import Path
 import os
 
-# The project root, one level above backend/. .env and data.db live there, so
-# the app finds them no matter which folder the server is started from.
+# The project root, one level above backend/. .env lives there, so the app
+# finds it no matter which folder the server is started from.
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(PROJECT_ROOT / ".env")
 
 API_KEY_SUFFIX = "_API_KEY"
-
-# The SQLite database used when DATABASE_URL isn't set.
-SQLITE_PATH = PROJECT_ROOT / "data.db"
 
 
 def load_api_keys() -> dict[str, str]:
@@ -42,9 +39,6 @@ class Config:
             conversation summary is updated.
         database_url: SQLAlchemy URL of the database, read from ``DATABASE_URL``,
             e.g. ``postgresql+psycopg://lagoa:secret@localhost:5432/lagoa``.
-            Without it the app falls back to SQLite in ``data.db`` in the
-            project root, which is fine for trying Lagoa out but not for
-            production.
         ollama_url: Address of the local Ollama server, read from ``OLLAMA_URL``.
         chat_models: Models users chat with and pick from in the interface.
             ``provider`` selects the client class, ``model`` is the provider's
@@ -66,7 +60,7 @@ class Config:
             models' limits).
     """
     api_keys = load_api_keys()
-    database_url = os.getenv("DATABASE_URL") or f"sqlite:///{SQLITE_PATH.as_posix()}"
+    database_url = os.getenv("DATABASE_URL")
     ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
     jwt_secret = os.getenv("JWT_SECRET")
     jwt_algorithm = "HS256"
@@ -88,3 +82,5 @@ cfg = Config()
 
 if not cfg.jwt_secret:
     raise RuntimeError("JWT_SECRET is not set. Add it to .env, see README.")
+if not cfg.database_url:
+    raise RuntimeError("DATABASE_URL is not set. Add it to .env, see README.")
