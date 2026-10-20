@@ -45,7 +45,9 @@ Assim o assistente lembra tanto dos detalhes recentes quanto do panorama geral, 
 - **Python 3.14**
 - **FastAPI** — API REST
 - **Uvicorn** — servidor ASGI
-- **SQLAlchemy 2** — ORM, banco de dados SQLite
+- **SQLAlchemy 2** — ORM
+- **PostgreSQL** + **psycopg** — banco de dados em produção; SQLite para experimentar
+- **Alembic** — migrações do banco de dados
 - **groq** — cliente da API do Groq
 - **google-genai** — cliente da API do Gemini
 - **Ollama** + **httpx** — modelos locais sem internet
@@ -93,8 +95,12 @@ Assim o assistente lembra tanto dos detalhes recentes quanto do panorama geral, 
 │   ├── api.js                # endereço da API, token e pedidos autenticados
 │   ├── auth.js               # lógica de login e cadastro
 │   └── app.js                # lógica do chat
+├── migrations/               # migrações do Alembic do banco de dados
+├── scripts/
+│   └── sqlite_to_postgres.py # copia os dados do SQLite para o Postgres
 ├── .env                      # chaves de API e segredos (fora do Git)
-├── data.db                   # banco de dados SQLite (criado automaticamente, fora do Git)
+├── alembic.ini               # configurações do Alembic
+├── data.db                   # banco SQLite, se DATABASE_URL não estiver definido (fora do Git)
 └── pyproject.toml            # dependências
 ```
 
@@ -175,7 +181,38 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 A chave do Groq fica no [console do Groq](https://console.groq.com/keys), a do Gemini, no [Google AI Studio](https://aistudio.google.com/apikey), e a do Claude (opcional, paga), no [Console da Anthropic](https://console.anthropic.com/).
 
-### 4. Inicie o backend
+### 4. Configure o banco de dados
+
+Em produção, a Lagoa usa o PostgreSQL. Instale o [PostgreSQL](https://www.postgresql.org/download/) e crie um usuário e um banco (troque a senha):
+
+```bash
+psql -U postgres -c "CREATE ROLE lagoa LOGIN PASSWORD 'troque_esta_senha'" -c "CREATE DATABASE lagoa OWNER lagoa"
+```
+
+Depois adicione o endereço do banco ao `.env`:
+
+```
+DATABASE_URL=postgresql+psycopg://lagoa:troque_esta_senha@localhost:5432/lagoa
+```
+
+As tabelas são criadas e atualizadas sozinhas: ao iniciar, o backend aplica as migrações do Alembic que faltam (pasta `migrations/`). Sem `DATABASE_URL`, a Lagoa usa um arquivo SQLite, o `data.db`: serve para experimentar, mas não para produção.
+
+**Já tem dados no SQLite?** Com `DATABASE_URL` apontando para um banco Postgres vazio, rode:
+
+```bash
+uv run python -m scripts.sqlite_to_postgres
+```
+
+O script cria as tabelas, copia usuários, conversas, mensagens e resumos mantendo os ids e confere a quantidade de linhas. Tudo acontece em uma transação: se algo der errado, o Postgres fica intacto. O `data.db` não é alterado; guarde-o como backup.
+
+**Mudou os modelos em `backend/db.py`?** Gere uma migração, confira o arquivo gerado em `migrations/versions/` e aplique:
+
+```bash
+uv run alembic revision --autogenerate -m "Descreva a mudança"
+uv run alembic upgrade head
+```
+
+### 5. Inicie o backend
 
 ```bash
 uv run uvicorn backend.main:app --reload
@@ -183,7 +220,7 @@ uv run uvicorn backend.main:app --reload
 
 A API fica disponível em http://localhost:8000, e a documentação interativa, em http://localhost:8000/docs.
 
-### 5. Inicie o frontend
+### 6. Inicie o frontend
 
 O frontend precisa rodar na porta 5500 (esse endereço está liberado nas configurações de CORS). Sirva apenas a pasta `frontend/`, por exemplo:
 

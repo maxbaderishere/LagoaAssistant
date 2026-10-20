@@ -1,0 +1,7 @@
+Alembic migrations of the Lagoa database.
+
+After changing the models in backend/db.py, generate a migration, read it
+and apply it:
+
+    uv run alembic revision --autogenerate -m "Describe the change"
+    uv run alembic upgrade head

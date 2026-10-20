@@ -11,6 +11,9 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 API_KEY_SUFFIX = "_API_KEY"
 
+# The SQLite database used when DATABASE_URL isn't set.
+SQLITE_PATH = PROJECT_ROOT / "data.db"
+
 
 def load_api_keys() -> dict[str, str]:
     """Collect every ``<NAME>_API_KEY`` environment variable that has a value.
@@ -37,7 +40,11 @@ class Config:
         keep_last: How many recent messages are sent to the model verbatim.
         summarise_every: How many older messages must pile up before the
             conversation summary is updated.
-        database_url: SQLAlchemy URL of the database, ``data.db`` in the project root.
+        database_url: SQLAlchemy URL of the database, read from ``DATABASE_URL``,
+            e.g. ``postgresql+psycopg://lagoa:secret@localhost:5432/lagoa``.
+            Without it the app falls back to SQLite in ``data.db`` in the
+            project root, which is fine for trying Lagoa out but not for
+            production.
         ollama_url: Address of the local Ollama server, read from ``OLLAMA_URL``.
         chat_models: Models users chat with and pick from in the interface.
             ``provider`` selects the client class, ``model`` is the provider's
@@ -59,7 +66,7 @@ class Config:
             models' limits).
     """
     api_keys = load_api_keys()
-    database_url = f"sqlite:///{(PROJECT_ROOT / 'data.db').as_posix()}"
+    database_url = os.getenv("DATABASE_URL") or f"sqlite:///{SQLITE_PATH.as_posix()}"
     ollama_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
     jwt_secret = os.getenv("JWT_SECRET")
     jwt_algorithm = "HS256"

@@ -24,7 +24,7 @@ Lagoa собирает разные нейросети — облачные и �
 - **Быстрые ответы:** если ассистент задал вопрос, под ответом появляются кнопки с вариантами ответа
 - **Кнопка «Стоп»:** пока модель отвечает, запрос можно отменить, а вопрос вернётся в поле ввода
 - **Память диалога:** Lagoa помнит контекст прошлых сообщений
-- Сохранение истории запросов в SQLite
+- Сохранение истории запросов в PostgreSQL (или SQLite для знакомства)
 - **Аккаунты:** регистрация и вход по логину и паролю
 - **Несколько чатов:** создание, переименование и удаление; чаты сгруппированы по дате, у каждого своя история и своя память
 - **Живой стартовый экран:** приветствие, подзаголовок и подсказки в поле ввода меняются в зависимости от времени суток
@@ -46,7 +46,9 @@ Lagoa собирает разные нейросети — облачные и �
 - **Python 3.14**
 - **FastAPI** — REST API
 - **Uvicorn** — ASGI-сервер
-- **SQLAlchemy 2** — ORM, база данных SQLite
+- **SQLAlchemy 2** — ORM
+- **PostgreSQL** + **psycopg** — база данных в проде; SQLite для знакомства
+- **Alembic** — миграции базы данных
 - **groq** — клиент для Groq API
 - **google-genai** — клиент для Gemini API
 - **Ollama** + **httpx** — локальные модели без интернета
@@ -94,8 +96,12 @@ Lagoa собирает разные нейросети — облачные и �
 │   ├── api.js                # адрес API, хранение токена и запросы с авторизацией
 │   ├── auth.js               # логика входа и регистрации
 │   └── app.js                # логика чата
+├── migrations/               # миграции базы данных Alembic
+├── scripts/
+│   └── sqlite_to_postgres.py # копирует данные из SQLite в Postgres
 ├── .env                      # ключи API и секреты (не в Git)
-├── data.db                   # база данных SQLite (создаётся сама, не в Git)
+├── alembic.ini               # настройки Alembic
+├── data.db                   # база SQLite, если DATABASE_URL не задан (не в Git)
 └── pyproject.toml            # зависимости
 ```
 
@@ -176,7 +182,38 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 Ключ Groq можно получить в [консоли Groq](https://console.groq.com/keys), ключ Gemini — в [Google AI Studio](https://aistudio.google.com/apikey), ключ Claude (необязательный, платный) — в [консоли Anthropic](https://console.anthropic.com/).
 
-### 4. Запустить бэкенд
+### 4. Настроить базу данных
+
+В проде Lagoa работает на PostgreSQL. Установите [PostgreSQL](https://www.postgresql.org/download/) и создайте пользователя и базу (смените пароль):
+
+```bash
+psql -U postgres -c "CREATE ROLE lagoa LOGIN PASSWORD 'смените_пароль'" -c "CREATE DATABASE lagoa OWNER lagoa"
+```
+
+Затем добавьте адрес базы в `.env`:
+
+```
+DATABASE_URL=postgresql+psycopg://lagoa:смените_пароль@localhost:5432/lagoa
+```
+
+Таблицы создаются и обновляются сами: при запуске бэкенд применяет недостающие миграции Alembic (папка `migrations/`). Без `DATABASE_URL` Lagoa использует файл SQLite `data.db` — для знакомства подойдёт, для прода нет.
+
+**Уже есть данные в SQLite?** Когда `DATABASE_URL` указывает на пустую базу Postgres, запустите:
+
+```bash
+uv run python -m scripts.sqlite_to_postgres
+```
+
+Скрипт создаёт таблицы, копирует пользователей, чаты, сообщения и сводки с сохранением id и сверяет число строк. Всё идёт одной транзакцией: если что-то сломается, Postgres останется нетронутым. `data.db` не меняется — оставьте его как бэкап.
+
+**Поменяли модели в `backend/db.py`?** Сгенерируйте миграцию, проверьте новый файл в `migrations/versions/` и примените:
+
+```bash
+uv run alembic revision --autogenerate -m "Описание изменения"
+uv run alembic upgrade head
+```
+
+### 5. Запустить бэкенд
 
 ```bash
 uv run uvicorn backend.main:app --reload
@@ -184,7 +221,7 @@ uv run uvicorn backend.main:app --reload
 
 API будет доступно на http://localhost:8000, интерактивная документация — на http://localhost:8000/docs.
 
-### 5. Запустить фронтенд
+### 6. Запустить фронтенд
 
 Фронтенд должен работать на порту 5500 (этот адрес разрешён в настройках CORS). Раздавать нужно только папку `frontend/`, например так:
 

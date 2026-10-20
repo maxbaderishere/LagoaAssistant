@@ -7,9 +7,10 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validat
 
 
 def _as_utc(value: datetime) -> datetime:
-    # SQLite drops the time zone, so times come back naive although they're
-    # stored in UTC. Marking them as UTC makes the JSON end with "+00:00",
-    # and the browser converts them to the user's local time correctly.
+    # SQLite (the fallback without DATABASE_URL) drops the time zone, so times
+    # come back naive although they're stored in UTC; Postgres keeps it.
+    # Marking them as UTC makes the JSON end with "+00:00", and the browser
+    # converts them to the user's local time correctly.
     return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value
 
 

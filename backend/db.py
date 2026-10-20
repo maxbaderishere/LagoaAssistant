@@ -1,19 +1,27 @@
-"""Database models and helpers for storing users, chats and messages in SQLite."""
+"""Database models and helpers for storing users, chats and messages.
+
+The schema itself is created and changed by Alembic migrations in ``migrations/``.
+"""
 
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, String, create_engine, delete, func, select
+from alembic import command
+from alembic.config import Config as AlembicConfig
+from sqlalchemy import DateTime, ForeignKey, MetaData, String, create_engine, delete, func, inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, Mapped, mapped_column
 from functools import wraps
 
-from backend.config import cfg
+from backend.config import PROJECT_ROOT, cfg
 
 engine = create_engine(url = cfg.database_url)
 
 # expire_on_commit=False keeps loaded attributes available after the session
 # closes, so helpers can return model objects to the caller.
 session_factory = sessionmaker(engine, expire_on_commit=False)
+
+# The first migration, the schema create_all() used to build.
+INITIAL_REVISION = "76871d871bd8"
 
 # Longest chat title; titles made from the first prompt are cut to this length.
 TITLE_MAX_LENGTH = 100
@@ -41,8 +49,18 @@ class LoginTakenError(Exception):
 
 
 class Base(DeclarativeBase):
-    """Base class for all ORM models."""
-    pass
+    """Base class for all ORM models.
+
+    The naming convention gives every constraint a predictable name, so
+    migrations can later drop or change it on any database.
+    """
+    metadata = MetaData(naming_convention={
+        "ix": "ix_%(column_0_label)s",
+        "uq": "uq_%(table_name)s_%(column_0_name)s",
+        "ck": "ck_%(table_name)s_%(constraint_name)s",
+        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+        "pk": "pk_%(table_name)s",
+    })
 
 class User(Base):
     """A registered user. The password is stored only as a hash."""
@@ -81,6 +99,22 @@ class ChatSummary(Base):
     chat_id: Mapped[int] = mapped_column(ForeignKey("chats.id"), primary_key=True)
     text: Mapped[str]
     last_summarized_id: Mapped[int]
+
+
+def migrate() -> None:
+    """Bring the database schema up to date by applying Alembic migrations.
+
+    A database made before migrations existed (by create_all()) already has
+    the tables of the first migration but no record of it, so it is marked as
+    being at that migration first instead of creating the tables again.
+    """
+    alembic_cfg = AlembicConfig(PROJECT_ROOT / "alembic.ini")
+    # Keep the server's logging setup; alembic.ini would replace it.
+    alembic_cfg.attributes["configure_logger"] = False
+    tables = inspect(engine).get_table_names()
+    if "users" in tables and "alembic_version" not in tables:
+        command.stamp(alembic_cfg, INITIAL_REVISION)
+    command.upgrade(alembic_cfg, "head")
 
 
 # ---------- users ----------

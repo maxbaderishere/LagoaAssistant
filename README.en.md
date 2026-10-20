@@ -24,7 +24,7 @@ Lagoa currently works with **Groq** (the default), **Google Gemini** and local m
 - **Quick replies:** when the assistant asks a question, reply buttons appear under the answer
 - **Stop button:** while the model is answering, the request can be cancelled and the question goes back into the input
 - **Conversation memory:** Lagoa remembers the context of previous messages
-- Request history stored in SQLite
+- Request history stored in PostgreSQL (or SQLite for a quick try)
 - **Accounts:** sign-up and sign-in with a login and password
 - **Multiple chats:** create, rename and delete chats; chats are grouped by date, each with its own history and memory
 - **Lively welcome screen:** the greeting, subtitle and input hints change with the time of day
@@ -46,7 +46,9 @@ This way the assistant remembers both the fresh details and the big picture, whi
 - **Python 3.14**
 - **FastAPI** — REST API
 - **Uvicorn** — ASGI server
-- **SQLAlchemy 2** — ORM, SQLite database
+- **SQLAlchemy 2** — ORM
+- **PostgreSQL** + **psycopg** — production database; SQLite for trying it out
+- **Alembic** — database migrations
 - **groq** — Groq API client
 - **google-genai** — Gemini API client
 - **Ollama** + **httpx** — local models without internet
@@ -94,8 +96,12 @@ This way the assistant remembers both the fresh details and the big picture, whi
 │   ├── api.js                # API address, token storage and authorized requests
 │   ├── auth.js               # sign-in and sign-up logic
 │   └── app.js                # chat logic
+├── migrations/               # Alembic database migrations
+├── scripts/
+│   └── sqlite_to_postgres.py # copies data from SQLite to Postgres
 ├── .env                      # API keys and secrets (not in Git)
-├── data.db                   # SQLite database (created automatically, not in Git)
+├── alembic.ini               # Alembic settings
+├── data.db                   # SQLite database if DATABASE_URL isn't set (not in Git)
 └── pyproject.toml            # dependencies
 ```
 
@@ -176,7 +182,38 @@ python -c "import secrets; print(secrets.token_urlsafe(48))"
 
 Get a Groq key in the [Groq console](https://console.groq.com/keys) a Gemini key in [Google AI Studio](https://aistudio.google.com/apikey), and a Claude key (optional, paid) in the [Anthropic Console](https://console.anthropic.com/).
 
-### 4. Run the backend
+### 4. Set up the database
+
+In production Lagoa uses PostgreSQL. Install [PostgreSQL](https://www.postgresql.org/download/) and create a user and a database (change the password):
+
+```bash
+psql -U postgres -c "CREATE ROLE lagoa LOGIN PASSWORD 'change_this_password'" -c "CREATE DATABASE lagoa OWNER lagoa"
+```
+
+Then add the database address to `.env`:
+
+```
+DATABASE_URL=postgresql+psycopg://lagoa:change_this_password@localhost:5432/lagoa
+```
+
+Tables are created and updated automatically: on startup the backend applies any pending Alembic migrations (the `migrations/` folder). Without `DATABASE_URL` Lagoa uses a SQLite file, `data.db`: fine for trying it out, not for production.
+
+**Already have data in SQLite?** With `DATABASE_URL` pointing at an empty Postgres database, run:
+
+```bash
+uv run python -m scripts.sqlite_to_postgres
+```
+
+The script creates the tables, copies users, chats, messages and summaries keeping their ids, and checks the row counts. It all happens in one transaction: if anything fails, Postgres is left untouched. `data.db` isn't changed; keep it as a backup.
+
+**Changed the models in `backend/db.py`?** Generate a migration, read the new file in `migrations/versions/` and apply it:
+
+```bash
+uv run alembic revision --autogenerate -m "Describe the change"
+uv run alembic upgrade head
+```
+
+### 5. Run the backend
 
 ```bash
 uv run uvicorn backend.main:app --reload
@@ -184,7 +221,7 @@ uv run uvicorn backend.main:app --reload
 
 The API will be available at http://localhost:8000, interactive docs at http://localhost:8000/docs.
 
-### 5. Run the frontend
+### 6. Run the frontend
 
 The frontend must be served on port 5500 (this origin is allowed in the CORS settings). Serve only the `frontend/` folder, for example:
 

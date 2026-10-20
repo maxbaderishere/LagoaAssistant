@@ -8,7 +8,7 @@ messages so the model keeps context.
 from dataclasses import asdict
 
 from fastapi import FastAPI
-from backend.db import Base, engine
+from backend.db import migrate
 from backend.ai.setup import registry
 from backend.auth import router as auth_router
 from backend.chats import router as chats_router
@@ -18,9 +18,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create the database tables on application startup."""
-    Base.metadata.create_all(engine)
-    print("All tabels created!")
+    """Apply pending database migrations on application startup."""
+    migrate()
     yield
 
 
